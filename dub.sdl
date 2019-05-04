@@ -1,0 +1,6 @@
+name "sspi-d"
+description "SSPI Windows Authentication Library"
+authors "Laeeth Isharc"
+copyright "Copyright © 2019, Laeeth Isharc"
+license "mit"
+targetType "library"

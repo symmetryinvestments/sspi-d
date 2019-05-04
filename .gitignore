@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/sspi-d
+sspi-d.so
+sspi-d.dylib
+sspi-d.dll
+sspi-d.a
+sspi-d.lib
+sspi-d-test-*
+*.exe
+*.o
+*.obj
+*.lst
