@@ -3,6 +3,7 @@ module sspi.defines;
 version(Windows):
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
+import core.sys.windows.security;
 
 
 enum SecPkgFlag
@@ -48,15 +49,15 @@ struct SecPkgContext_NegotiationInfoW
 
 enum SecurityStatus
 {
-	bufferTooSmall = SEC_E_BUFFER_TOO_SMALL,
-	contextExpired = SEC_E_CONTEXT_EXPIRED,
-	cryptoSystemInvalid = SEC_E_CRYPTO_SYSTEM_INVALID,
-	insufficientMemory = SEC_E_INSUFFICIENT_MEMORY,
-	invalidHandle = SEC_E_INVALID_HANDLE,
-	invalidToken = SEC_E_INVALID_TOKEN,
-	qopNotSupported = SEC_E_QOP_NOT_SUPPORTED,
-	outOfSequence = SEC_E_OUT_OF_SEQUENCE,
-	messageAltered = SEC_E_MESSAGE_ALTERED,
+	bufferTooSmall = SECURITY_STATUS.SEC_E_BUFFER_TOO_SMALL,
+	contextExpired = SECURITY_STATUS.SEC_E_CONTEXT_EXPIRED,
+	cryptoSystemInvalid = SECURITY_STATUS.SEC_E_CRYPTO_SYSTEM_INVALID,
+	insufficientMemory = SECURITY_STATUS.SEC_E_INSUFFICIENT_MEMORY,
+	invalidHandle = SECURITY_STATUS.SEC_E_INVALID_HANDLE,
+	invalidToken = SECURITY_STATUS.SEC_E_INVALID_TOKEN,
+	qopNotSupported = SECURITY_STATUS.SEC_E_QOP_NOT_SUPPORTED,
+	outOfSequence = SECURITY_STATUS.SEC_E_OUT_OF_SEQUENCE,
+	messageAltered = SECURITY_STATUS.SEC_E_MESSAGE_ALTERED,
 }
 
 
