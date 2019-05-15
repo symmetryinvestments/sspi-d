@@ -21,7 +21,7 @@ import sspi.helpers;
 import std.datetime:DateTime;
 import std.string:toStringz;
 import std.conv:to;
-import std.tuple:tuple;
+import std.typecons:tuple;
 
 struct BaseAuth
 {
