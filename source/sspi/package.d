@@ -19,7 +19,7 @@ import core.sys.windows.sspi;
 import sspi.defines;
 import sspi.helpers;
 import std.datetime:DateTime;
-import std.string:toStringz;
+import std.string:toStringz,fromStringz;
 import std.conv:to;
 import std.typecons:tuple;
 
@@ -27,13 +27,13 @@ struct BaseAuth
 {
 	SecHandle context;
 	CredHandle credentials;
-	long nextSequenceNumber;
+	uint nextSequenceNumber;
 	bool isAuthenticated;
 	
 	/// Reset everything to an unauthorized state
 	void reset()
 	{
-		this.context = null;
+		this.context = SecHandle.init;
 		this.isAuthenticated = false;
 		this.nextSequenceNumber = 0;
 	}
@@ -48,6 +48,7 @@ struct BaseAuth
 
 	auto encrypt(string data)
 	{
+        ubyte[] ret;
 		auto packageInfo = context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
 		auto trailerSize = packageInfo.cbSecurityTrailer;
 
@@ -58,13 +59,14 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
-		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = cast(void*) data.toStringz;
+        ret.length = trailerSize + data.length+4;
+		buffers[0].cbBuffer = trailerSize;
+		buffers[0].BufferType = SECBUFFER_TOKEN;
+		buffers[0].pvBuffer = cast(void*)(ret.ptr + 4);
 
-		buffers[1].cbBuffer = trailerSize;
-		buffers[1].BufferType = SECBUFFER_TOKEN;
-		buffers[1].pvBuffer = packageInfo.pTrailer;
+		buffers[1].cbBuffer = data.length + 1;
+		buffers[1].BufferType = SECBUFFER_DATA;
+		buffers[1].pvBuffer = cast(void*) data.toStringz;
 
 		context.encryptMessage(0, bufferDesc, this.getNextSequenceNumber());
 		return tuple(buffers[0],buffers[1]);
@@ -90,7 +92,7 @@ struct BaseAuth
 		buffers[1].pvBuffer = cast(void*) trailer.toStringz;
 
 		auto fQOP = context.decryptMessage(bufferDesc, this.getNextSequenceNumber());
-		return buffers[0].pvBuffer.to!(char*).fromStringz;
+		return (cast(char*) buffers[0].pvBuffer).fromStringz;
 	}
 
 	/// sign a string suitable for transmission, returning the signature.
@@ -114,7 +116,7 @@ struct BaseAuth
 		buffers[1].cbBuffer = trailerSize;
 		buffers[1].BufferType = SECBUFFER_TOKEN;
 		context.makeSignature(0,bufferDesc,this.getNextSequenceNumber());
-		return buffers[1].cbBuffer.to!(char*).fromStringz;
+		return (cast(char*)buffers[1].cbBuffer).fromStringz;
 	}
 
         /// Verifies data and its signature.  If verification fails, an sspi.error will be raised.
