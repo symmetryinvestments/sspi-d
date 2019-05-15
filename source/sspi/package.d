@@ -66,7 +66,7 @@ struct BaseAuth
 		buffers[0].BufferType = SECBUFFER_TOKEN;
 		buffers[0].pvBuffer = cast(void*)(ret.ptr + 4);
 
-		buffers[1].cbBuffer = data.length + 1;
+		buffers[1].cbBuffer = data.length.to!uint + 1;
 		buffers[1].BufferType = SECBUFFER_DATA;
 		buffers[1].pvBuffer = cast(void*) data.toStringz;
 
@@ -170,7 +170,7 @@ struct ClientAuth
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
 		this.packageInfo = querySecurityPackageInfo(packageName);
-        auto result = acquireCredentialsHandle(packageInfo.Name); // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+        auto result = acquireCredentialsHandle(packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
 		this.credentialsExpiry = result[0];
         this.base.credentials = result[1];
 	}
@@ -217,9 +217,7 @@ struct ClientAuth
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = null;
 
-        char* targetSpn;
-		auto result = initializeSecurityContext(this.credentials, this.context, &targetSpn, this.securityContextFlags, this.dataRep, bufferDescIn, bufferDescOut);
-        this.targetSpn = targetSpn.fromStringz.idup;
+		auto result = initializeSecurityContext(this.credentials, this.context, targetSecurityContextProvider, cast(uint)this.securityContextFlags, 0,this.dataRep, bufferDescIn, bufferDescOut);
 		this.contextAttr = result[0];
 		this.credentialsExpiry = result[1];
 		auto securityStatus = result[2];
