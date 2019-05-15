@@ -16,6 +16,7 @@ module sspi.helpers;
 version(Windows):
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
+import core.sys.windows.security;
 
 
 

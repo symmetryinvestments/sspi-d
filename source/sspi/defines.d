@@ -47,7 +47,7 @@ struct SecPkgContext_NegotiationInfoW
 }
 
 
-enum SecurityStatus
+enum SecurityStatus:SECURITY_STATUS
 {
 	bufferTooSmall = SECURITY_STATUS.SEC_E_BUFFER_TOO_SMALL,
 	contextExpired = SECURITY_STATUS.SEC_E_CONTEXT_EXPIRED,
