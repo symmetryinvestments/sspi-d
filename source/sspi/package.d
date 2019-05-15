@@ -217,7 +217,7 @@ struct ClientAuth
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = null;
 
-		auto result = initializeSecurityContext(this.credentials, this.context, targetSecurityContextProvider, cast(uint)this.securityContextFlags, 0,this.dataRep, bufferDescIn, bufferDescOut);
+		auto result = initializeSecurityContext(this.credentials, this.context, targetSecurityContextProvider, cast(uint)this.securityContextFlags, 0UL,cast(uint)this.dataRep, bufferDescIn, bufferDescOut);
 		this.contextAttr = result[0];
 		this.credentialsExpiry = result[1];
 		auto securityStatus = result[2];
