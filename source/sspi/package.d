@@ -18,7 +18,7 @@ import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
 import sspi.defines;
 import sspi.helpers;
-
+import std.datetime:DateTime;
 
 
 struct BaseAuth
@@ -152,9 +152,9 @@ struct ClientAuth
 	string dataRep;
 	string targetSecurityContextProvider;
 	PSecPkgInfoW* packageInfo;
-	TimeSpan credentialsExpiry;
+	//TimeSpan credentialsExpiry;
 
-	this(string packageName, string clientName, AuthInfo authInfo = AuthInfo.init,
+	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
 		IscReq securityContextFlags = DefaultSecurityContextFlags, long dataRep = SECURITY_NETWORK_DREP)
 	{
@@ -162,8 +162,8 @@ struct ClientAuth
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
 		this.packageInfo = querySecurityContextPackageInfo(packageName);
-		this.credentialsExpiry = acquireCredentialsHandle(clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
-				null, authInfo);
+		this.credentialsExpiry = acquireCredentialsHandle(packageInfo.Name); // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+				null);
 	}
 
 
@@ -222,7 +222,7 @@ struct ClientAuth
 	}
 }
 
-
+/+
 
 /// Manages the server side of an SSPI authentication handshake
 struct ServerAuth
@@ -231,10 +231,10 @@ struct ServerAuth
 	alias base this;
 	string spn;
 	ulong datarap;
-	ulong securityContextFlags;
+	IscReq securityContextFlags;
 	void* packageInfo;
 	DateTime credentialsExpiry;
-	this(string packageName, spn = None, securityContextFlags = 0UL, ulong datarep = SECURITY_NETWORK_DREP)
+	this(string packageName, string spn = "", IscReq securityContextFlags = 0UL, ulong datarep = SECURITY_NETWORK_DREP)
 	{
 		this.spn = spn;
 		this.datarep = datarep;
@@ -289,4 +289,5 @@ struct ServerAuth
 	}
 }
 
++/
 

@@ -25,7 +25,7 @@ bool secSuccess(SECURITY_STATUS status)
 	return status >= 0;
 }
 
-T queryContextAttributes(T)(ref _SecHandle context, SecPackageAttribute attribute)
+T queryContextAttributes(T)(ref SecHandle context, SecPackageAttribute attribute)
 {
 	T ret;
 	auto securityStatus = QueryContextAttributesW(&context,attribute,cast(void*)&ret);
@@ -33,7 +33,7 @@ T queryContextAttributes(T)(ref _SecHandle context, SecPackageAttribute attribut
 	return ret;
 }
 
-ulong decryptMessage(ref _SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
+ulong decryptMessage(ref SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
 {
 	ulong fQOP;
 	auto securityStatus = DecryptMessage(&context,&message,messageSeqNo,&fQOP);
@@ -41,19 +41,19 @@ ulong decryptMessage(ref _SecHandle context, ref SecBufferDesc message, ulong me
 	return fQOP;
 }
 
-void encryptMessage(ref _SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
+void encryptMessage(ref SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
 {
 	auto securityStatus = EncryptMessageW(&context,fQOP, &message,cast(void*)&ret);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
-void makeSignature(ref _SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
+void makeSignature(ref SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
 {
 	auto securityStatus = MakeSignature(&context,fQOP,&message,messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
-ulong verifySignature(ref _SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
+ulong verifySignature(ref SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
 {
 	ulong pfQOP;
 	auto securityStatus = VerifySignature(&context,&message,messageSeqNo,&pfQOP);

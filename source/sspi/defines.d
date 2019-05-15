@@ -53,13 +53,13 @@ enum SecurityStatus
 	// bufferTooSmall = SECURITY_STATUS.SEC_E_BUFFER_TOO_SMALL,
 	// contextExpired = SECURITY_STATUS.SEC_E_CONTEXT_EXPIRED,
     // SEC_E_CERT_EXPIRED = (-2146893016),
-	cryptoSystemInvalid = SECURITY_STATUS.SEC_E_CRYPTO_SYSTEM_INVALID,
+	// cryptoSystemInvalid = SECURITY_STATUS.SEC_E_CRYPTO_SYSTEM_INVALID,
     insufficientMemory =(-2146893056),
     invalidHandle = (-2146893055),
     invalidToken = (-2146893048),
 	qopNotSupported = (-2146893046),
-	outOfSequence = SECURITY_STATUS.SEC_E_OUT_OF_SEQUENCE,
-	messageAltered = SECURITY_STATUS.SEC_E_MESSAGE_ALTERED,
+	//outOfSequence = SECURITY_STATUS.SEC_E_OUT_OF_SEQUENCE,
+	//messageAltered = SECURITY_STATUS.SEC_E_MESSAGE_ALTERED,
 }
 /+
 enum :SECURITY_STATUS{
