@@ -163,7 +163,7 @@ struct ClientAuth
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
 		this.packageInfo = querySecurityContextPackageInfo(packageName);
 		this.credentialsExpiry = acquireCredentialsHandle(packageInfo.Name); // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
-				null);
+				//null);
 	}
 
 
