@@ -25,7 +25,7 @@ import std.typecons:tuple;
 
 struct BaseAuth
 {
-	SecHandle* context;
+	SecHandle context;
 	CredHandle credentials;
 	long nextSequenceNumber;
 	bool isAuthenticated;
@@ -66,7 +66,7 @@ struct BaseAuth
 		buffers[1].BufferType = SECBUFFER_TOKEN;
 		buffers[1].pvBuffer = packageInfo.pTrailer;
 
-		context.encryptMessage(0, bufferDesc, this.getNextSequenceNum());
+		context.encryptMessage(0, bufferDesc, this.getNextSequenceNumber());
 		return tuple(buffers[0],buffers[1]);
 	}
 
@@ -83,14 +83,14 @@ struct BaseAuth
 
 		buffers[0].cbBuffer = data.length.to!uint +1;
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = data.toStringz;
+		buffers[0].pvBuffer = cast(void*)data.toStringz;
 
 		buffers[1].cbBuffer = trailer.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[1].BufferType = SECBUFFER_TOKEN;
 		buffers[1].pvBuffer = cast(void*) trailer.toStringz;
 
-		auto fQOP = context.decryptMessage(bufferDesc, this.getNextSequNum());
-		return buffers[0].pvBuffer.fromStringz;
+		auto fQOP = context.decryptMessage(bufferDesc, this.getNextSequenceNumber());
+		return buffers[0].pvBuffer.to!(char*).fromStringz;
 	}
 
 	/// sign a string suitable for transmission, returning the signature.
@@ -109,12 +109,12 @@ struct BaseAuth
 
 		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = data.toStringz;
+		buffers[0].pvBuffer = cast(void*) data.toStringz;
 
 		buffers[1].cbBuffer = trailerSize;
 		buffers[1].BufferType = SECBUFFER_TOKEN;
-		context.makeSignature(0,bufferDesc,this.getNextSeqNum());
-		return buffers[1].cbBuffer.fromStringz;
+		context.makeSignature(0,bufferDesc,this.getNextSequenceNumber());
+		return buffers[1].cbBuffer.to!(char*).fromStringz;
 	}
 
         /// Verifies data and its signature.  If verification fails, an sspi.error will be raised.
@@ -128,13 +128,13 @@ struct BaseAuth
 
 		buffers[0].cbBuffer = data.length +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = data.toStringz;
+		buffers[0].pvBuffer = cast(void*) data.toStringz;
 
 		buffers[1].cbBuffer = sig.length.to!uint +1; // FIXME
 		buffers[1].BufferType = SECBUFFER_TOKEN;
-		buffers[1].pvBuffer = sig.toStringz;
+		buffers[1].pvBuffer = cast(void*) sig.toStringz;
 
-		context.verifySignature(bufferDesc, this.getNextSeqNum());
+		context.verifySignature(bufferDesc, this.getNextSequenceNumber());
 	}
 }
 
@@ -151,10 +151,10 @@ struct ClientAuth
 						IscReq.replayDetect	| IscReq.confidentiality;
 
 	IscReq securityContextFlags;
-	string dataRep;
+	long dataRep;
 	string targetSecurityContextProvider;
 	PSecPkgInfoW* packageInfo;
-	//TimeSpan credentialsExpiry;
+    TimeStamp credentialsExpiry;
 
 	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
@@ -163,9 +163,10 @@ struct ClientAuth
 		this.securityContextFlags = securityContextFlags;
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
-		this.packageInfo = querySecurityContextPackageInfo(packageName);
-		this.credentialsExpiry = acquireCredentialsHandle(packageInfo.Name); // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
-				//null);
+		this.packageInfo = querySecurityPackageInfo(packageName);
+        auto result = acquireCredentialsHandle(packageInfo.Name); // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+		this.credentialsExpiry = result[0];
+        this.base.credentials = result[1];
 	}
 
 
@@ -174,7 +175,7 @@ struct ClientAuth
 		TimeStamp lifetime;
 		SecurityStatus securityStatus = cast(SecurityStatus) AcquireCredentialsHandleW(
 									null,
-									packageName.toStringz,
+									cast(wchar*) packageName.toUTF16z,
 									SECPKG_CRED_OUTBOUND,
 									null,
 									null,

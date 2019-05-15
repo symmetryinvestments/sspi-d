@@ -46,7 +46,7 @@ uint decryptMessage(ref SecHandle context, ref SecBufferDesc message, uint messa
 
 void encryptMessage(ref SecHandle context, uint fQOP, ref SecBufferDesc message, uint messageSeqNo)
 {
-	auto securityStatus = EncryptMessage(&context,fQOP, &message,&messageSeqNo);
+	auto securityStatus = EncryptMessage(&context,fQOP, &message,messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
@@ -68,17 +68,17 @@ uint verifySignature(ref SecHandle context, ref SecBufferDesc message, uint mess
 auto querySecurityPackageInfo(string packageName)
 {
 	PSecPkgInfoW ret;
-	SecurityStatus securityStatus = cast(SecurityStatus) QuerySecurityPackageInfoW(packageName.toUTF16z,&ret);
+	SecurityStatus securityStatus = cast(SecurityStatus) QuerySecurityPackageInfoW(cast(wchar*)packageName.toUTF16z,&ret);
 	enforce(securityStatus.secSuccess, securityStatus.to!string);
 	return ret;
 }
 
-auto initializeSecurityContext(ref CredHandle credentials, SecHandle context, string targetName, ulong fContextReq, ulong reserved1, ulong targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
+auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
 {
-	ulong contextAttribute;
+	uint contextAttribute;
 	SecHandle newContext;
 	TimeStamp expiry;
-	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, context, targetName, fContextReq, 0, targetDataRep,&input,0,&newContext,&outputBufferDesc,&expiry);
+	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,&input,0,&newContext,&outputBufferDesc,&contextAttribute,&expiry);
 	return tuple(contextAttribute,expiry,securityStatus,newContext,outputBufferDesc);
 }
 
