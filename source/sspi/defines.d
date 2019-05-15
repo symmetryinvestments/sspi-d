@@ -60,6 +60,8 @@ enum SecurityStatus
 	qopNotSupported = (-2146893046),
 	//outOfSequence = SECURITY_STATUS.SEC_E_OUT_OF_SEQUENCE,
 	//messageAltered = SECURITY_STATUS.SEC_E_MESSAGE_ALTERED,
+    completeAndContinue = 590612,
+    completeNeeded = 590611,
 }
 /+
 enum :SECURITY_STATUS{

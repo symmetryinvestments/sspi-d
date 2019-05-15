@@ -82,4 +82,9 @@ auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context
 	return tuple(contextAttribute,expiry,securityStatus,newContext,outputBufferDesc);
 }
 
+void completeAuthToken(ref SecHandle context, ref SecBufferDesc token)
+{
+    auto securityStatus = CompleteAuthToken(&context,&token);
+    enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
+}
 

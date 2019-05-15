@@ -22,6 +22,8 @@ import std.datetime:DateTime;
 import std.string:toStringz,fromStringz;
 import std.conv:to;
 import std.typecons:tuple;
+import std.utf:toUTF16z;
+import std.exception;
 
 struct BaseAuth
 {
@@ -59,7 +61,7 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-        ret.length = trailerSize + data.length+4;
+        ret.length = trailerSize + data.length.to!uint+4;
 		buffers[0].cbBuffer = trailerSize;
 		buffers[0].BufferType = SECBUFFER_TOKEN;
 		buffers[0].pvBuffer = cast(void*)(ret.ptr + 4);
@@ -116,7 +118,7 @@ struct BaseAuth
 		buffers[1].cbBuffer = trailerSize;
 		buffers[1].BufferType = SECBUFFER_TOKEN;
 		context.makeSignature(0,bufferDesc,this.getNextSequenceNumber());
-		return (cast(char*)buffers[1].cbBuffer).fromStringz;
+		return (cast(char*)buffers[1].cbBuffer).fromStringz.idup;
 	}
 
         /// Verifies data and its signature.  If verification fails, an sspi.error will be raised.
@@ -128,7 +130,7 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length +1; // FIXME - might be null terminated already
+		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
 		buffers[0].pvBuffer = cast(void*) data.toStringz;
 
@@ -155,8 +157,10 @@ struct ClientAuth
 	IscReq securityContextFlags;
 	long dataRep;
 	string targetSecurityContextProvider;
-	PSecPkgInfoW* packageInfo;
+	SecPkgInfoW* packageInfo;
     TimeStamp credentialsExpiry;
+    string targetSpn;
+    uint contextAttr;
 
 	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
@@ -203,7 +207,7 @@ struct ClientAuth
 
 		buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
 		buffersIn[0].BufferType = SECBUFFER_TOKEN;
-		buffersIn[0].pvBuffer = data.toStringz;
+		buffersIn[0].pvBuffer = cast(void*)data.toStringz;
 
 		bufferDescIn.ulVersion = SECBUFFER_VERSION;
 		bufferDescIn.cBuffers = 1;
@@ -213,16 +217,18 @@ struct ClientAuth
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = null;
 
-		auto result = initializeSecurityContext(this.credentials, this.context, this.targetSpn, this.securityContextFlags, this.dataRep, secBufferDescIn, secBufferDescOut);
+        char* targetSpn;
+		auto result = initializeSecurityContext(this.credentials, this.context, &targetSpn, this.securityContextFlags, this.dataRep, bufferDescIn, bufferDescOut);
+        this.targetSpn = targetSpn.fromStringz.idup;
 		this.contextAttr = result[0];
-		this.contextExpiry = result[1];
+		this.credentialsExpiry = result[1];
 		auto securityStatus = result[2];
 		this.context = result[3];
 
-		if (securityStatus & SEC_I_COMPLETE_NEEDED || securityStatus & SEC_I_COMPLETE_AND_CONTINUE)
+		if (securityStatus & SecurityStatus.completeNeeded || securityStatus & SecurityStatus.completeAndContinue)
 			context.completeAuthToken(bufferDescOut);
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, buffers[0]);
+		return tuple(securityStatus, buffersOut[0]);
 
 	}
 }
