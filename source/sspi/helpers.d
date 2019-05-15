@@ -20,6 +20,8 @@ import core.sys.windows.security;
 import std.exception;
 import sspi.defines;
 import std.typecons:tuple;
+import std.conv:to;
+import std.utf:toUTF16z;
 
 bool secSuccess(SECURITY_STATUS status)
 {
@@ -44,7 +46,7 @@ uint decryptMessage(ref SecHandle context, ref SecBufferDesc message, uint messa
 
 void encryptMessage(ref SecHandle context, uint fQOP, ref SecBufferDesc message, uint messageSeqNo)
 {
-	auto securityStatus = EncryptMessage(&context,fQOP, &message,cast(void*)&messageSeqNo);
+	auto securityStatus = EncryptMessage(&context,fQOP, &message,&messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
@@ -66,7 +68,7 @@ uint verifySignature(ref SecHandle context, ref SecBufferDesc message, uint mess
 auto querySecurityPackageInfo(string packageName)
 {
 	PSecPkgInfoW ret;
-	SecurityStatus securityStatus = cast(SecurityStatus) QuerySecurityPackageInfoW(packageName,&ret);
+	SecurityStatus securityStatus = cast(SecurityStatus) QuerySecurityPackageInfoW(packageName.toUTF16z,&ret);
 	enforce(securityStatus.secSuccess, securityStatus.to!string);
 	return ret;
 }
@@ -76,7 +78,7 @@ auto initializeSecurityContext(ref CredHandle credentials, SecHandle context, st
 	ulong contextAttribute;
 	SecHandle newContext;
 	TimeStamp expiry;
-	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, context, targetName, fcontextReq, 0, targetDataRep,&input,0,&newContext,&output,&expiry);
+	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, context, targetName, fContextReq, 0, targetDataRep,&input,0,&newContext,&outputBufferDesc,&expiry);
 	return tuple(contextAttribute,expiry,securityStatus,newContext,outputBufferDesc);
 }
 

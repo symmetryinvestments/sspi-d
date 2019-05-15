@@ -20,6 +20,8 @@ import sspi.defines;
 import sspi.helpers;
 import std.datetime:DateTime;
 import std.string:toStringz;
+import std.conv:to;
+import std.tuple:tuple;
 
 struct BaseAuth
 {
@@ -39,7 +41,7 @@ struct BaseAuth
 	/// Get the next sequence number for a transmission.  Default implementation is to increment a counter
 	auto getNextSequenceNumber()
 	{
-		ret = nextSequenceNumber;
+		auto ret = nextSequenceNumber;
 		nextSequenceNumber++;
 		return ret;
 	}
@@ -58,13 +60,13 @@ struct BaseAuth
 
 		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = data.toStringz;
+		buffers[0].pvBuffer = cast(void*) data.toStringz;
 
 		buffers[1].cbBuffer = trailerSize;
 		buffers[1].BufferType = SECBUFFER_TOKEN;
-		buffers[1].pvBuffer = pTrailer;
+		buffers[1].pvBuffer = packageInfo.pTrailer;
 
-		context.encryptMessage(0, bufferDesc, this.getNextSequencNum());
+		context.encryptMessage(0, bufferDesc, this.getNextSequenceNum());
 		return tuple(buffers[0],buffers[1]);
 	}
 
@@ -79,13 +81,13 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length +1;
+		buffers[0].cbBuffer = data.length.to!uint +1;
 		buffers[0].BufferType = SECBUFFER_DATA;
 		buffers[0].pvBuffer = data.toStringz;
 
-		buffers[1].cbBuffer = trailer.length+1; // FIXME - might be null terminated already
+		buffers[1].cbBuffer = trailer.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[1].BufferType = SECBUFFER_TOKEN;
-		buffers[1].pvBuffer = trailer.toStringz;
+		buffers[1].pvBuffer = cast(void*) trailer.toStringz;
 
 		auto fQOP = context.decryptMessage(bufferDesc, this.getNextSequNum());
 		return buffers[0].pvBuffer.fromStringz;
@@ -105,7 +107,7 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length +1; // FIXME - might be null terminated already
+		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
 		buffers[0].pvBuffer = data.toStringz;
 
@@ -128,7 +130,7 @@ struct BaseAuth
 		buffers[0].BufferType = SECBUFFER_DATA;
 		buffers[0].pvBuffer = data.toStringz;
 
-		buffers[1].cbBuffer = sig.length +1; // FIXME
+		buffers[1].cbBuffer = sig.length.to!uint +1; // FIXME
 		buffers[1].BufferType = SECBUFFER_TOKEN;
 		buffers[1].pvBuffer = sig.toStringz;
 
