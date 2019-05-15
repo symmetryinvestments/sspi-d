@@ -17,8 +17,9 @@ version(Windows):
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
 import core.sys.windows.security;
-
-
+import std.exception;
+import sspi.defines;
+import std.typecons:tuple;
 
 bool secSuccess(SECURITY_STATUS status)
 {
@@ -33,29 +34,29 @@ T queryContextAttributes(T)(ref SecHandle context, SecPackageAttribute attribute
 	return ret;
 }
 
-ulong decryptMessage(ref SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
+uint decryptMessage(ref SecHandle context, ref SecBufferDesc message, uint messageSeqNo)
 {
-	ulong fQOP;
+	uint fQOP;
 	auto securityStatus = DecryptMessage(&context,&message,messageSeqNo,&fQOP);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 	return fQOP;
 }
 
-void encryptMessage(ref SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
+void encryptMessage(ref SecHandle context, uint fQOP, ref SecBufferDesc message, uint messageSeqNo)
 {
-	auto securityStatus = EncryptMessageW(&context,fQOP, &message,cast(void*)&ret);
+	auto securityStatus = EncryptMessage(&context,fQOP, &message,cast(void*)&messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
-void makeSignature(ref SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
+void makeSignature(ref SecHandle context, uint fQOP, ref SecBufferDesc message, uint messageSeqNo)
 {
 	auto securityStatus = MakeSignature(&context,fQOP,&message,messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
-ulong verifySignature(ref SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
+uint verifySignature(ref SecHandle context, ref SecBufferDesc message, uint messageSeqNo)
 {
-	ulong pfQOP;
+	uint pfQOP;
 	auto securityStatus = VerifySignature(&context,&message,messageSeqNo,&pfQOP);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 	return pfQOP;

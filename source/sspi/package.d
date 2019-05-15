@@ -19,7 +19,7 @@ import core.sys.windows.sspi;
 import sspi.defines;
 import sspi.helpers;
 import std.datetime:DateTime;
-
+import std.string:toStringz;
 
 struct BaseAuth
 {
@@ -56,7 +56,7 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length +1; // FIXME - might be null terminated already
+		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
 		buffers[0].pvBuffer = data.toStringz;
 
