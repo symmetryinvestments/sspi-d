@@ -220,7 +220,6 @@ struct ClientAuth
 		bufferDescOut.cbBuffer = packageInfo.cbMaxToken;
 		bufferDescOut.BufferType = SECBUFFER_TOKEN;
 
-		{
 		if(!isFirstStage)
 		{
 			bufferDescIn.ulVersion = SECBUFFER_VERSION;
