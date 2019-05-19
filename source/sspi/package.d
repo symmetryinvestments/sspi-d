@@ -227,11 +227,11 @@ struct ClientAuth
 			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
 			buffersIn[0].pvBuffer = data.toStringz;
-			result = initializeSecurityContext(this.credentials, this.context, this.buffersIn, this.securityContextFlags, this.dataRep, secBufferDescOut);
+			result = initializeSecurityContext(	credentials, context, buffersIn, securityContextFlags, dataRep, secBufferDescOut);
 		}
 		else
 		{
-			result = initializeSecurityContext(this.credentials, this.context, null, this.securityContextFlags, this.dataRep, secBufferDescOut);
+			result = initializeSecurityContext(	credentials, context, null, 	securityContextFlags, dataRep, secBufferDescOut);
 		}
 
 		this.contextAttr = result[0];
@@ -247,10 +247,7 @@ struct ClientAuth
 	}
 }
 
-/+
-
-
-
+version(None):
 /// Manages the server side of an SSPI authentication handshake
 struct ServerAuth
 {
@@ -312,11 +309,11 @@ struct ServerAuth
 			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
 			buffersIn[0].pvBuffer = data.toStringz;
-			result = initializeSecurityContext(this.credentials, this.context, this.buffersIn, this.securityContextFlags, this.dataRep, secBufferDescOut);
+			result = initializeSecurityContext(	credentials, context, buffersIn, securityContextFlags, dataRep, secBufferDescOut);
 		}
 		else
 		{
-			result = initializeSecurityContext(this.credentials, this.context, null, this.securityContextFlags, this.dataRep, secBufferDescOut);
+			result = initializeSecurityContext(	credentials, context, null, 	securityContextFlags, dataRep, secBufferDescOut);
 		}
 
 		this.contextAttr = result[0];
@@ -331,4 +328,3 @@ struct ServerAuth
 
 	}
 }
-+/
