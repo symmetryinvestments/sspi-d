@@ -50,9 +50,10 @@ struct BaseAuth
 
 	auto encrypt(string data)
 	{
-        ubyte[] ret;
-		auto packageInfo = context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
-		auto trailerSize = packageInfo.cbSecurityTrailer;
+		auto packageInfo = context.queryContextAttributes!SecPkgNegInfo(SecPackageAttribute.info);
+		auto packageSizes= context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
+		auto maxSignatureSize = packageSizes.cbMaxSignature;
+		auto trailerSize = packageSize.cbSecurityTrailer;
 
 		SecBuffer[2] buffers;
 		SecBufferDesc bufferDesc;
@@ -61,16 +62,18 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-        ret.length = trailerSize + data.length.to!uint+4;
+		// initial DWORD specifies size of trailer block
+		ubyte[] outputData;
+		outputData.length = trailerSize + data.length + DWORD.sizeof;
 		buffers[0].cbBuffer = trailerSize;
 		buffers[0].BufferType = SECBUFFER_TOKEN;
-		buffers[0].pvBuffer = cast(void*)(ret.ptr + 4);
+		buffers[0].pvBuffer = data.ptr + DWORD.sizeof;
 
-		buffers[1].cbBuffer = data.length.to!uint + 1;
+		buffers[1].cbBuffer = data.length;
 		buffers[1].BufferType = SECBUFFER_DATA;
-		buffers[1].pvBuffer = cast(void*) data.toStringz;
+		buffers[1].pvBuffer = data.ptr;
 
-		context.encryptMessage(0, bufferDesc, this.getNextSequenceNumber());
+		context.encryptMessage(0, bufferDesc, getNextSequenceNumber());
 		return tuple(buffers[0],buffers[1]);
 	}
 
@@ -85,16 +88,16 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length.to!uint +1;
-		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = cast(void*)data.toStringz;
+		buffers[0].cbBuffer = trailer.length.to!uint + 1;
+		buffers[0].BufferType = SECBUFFER_TOKEN;
+		buffers[0].pvBuffer = trailer.toStringz;
 
-		buffers[1].cbBuffer = trailer.length.to!uint +1; // FIXME - might be null terminated already
-		buffers[1].BufferType = SECBUFFER_TOKEN;
-		buffers[1].pvBuffer = cast(void*) trailer.toStringz;
+		buffers[1].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
+		buffers[1].BufferType = SECBUFFER_DATA;
+		buffers[1].pvBuffer = data.toStringz;
 
-		auto fQOP = context.decryptMessage(bufferDesc, this.getNextSequenceNumber());
-		return (cast(char*) buffers[0].pvBuffer).fromStringz;
+		auto fQOP = context.decryptMessage(bufferDesc, getNextSequenceNumber());
+		return (cast(char*)buffers[0].pvBuffer).fromStringz;
 	}
 
 	/// sign a string suitable for transmission, returning the signature.
@@ -158,9 +161,9 @@ struct ClientAuth
 	long dataRep;
 	string targetSecurityContextProvider;
 	SecPkgInfoW* packageInfo;
-    TimeStamp credentialsExpiry;
-    string targetSpn;
-    uint contextAttr;
+  TimeStamp credentialsExpiry;
+  string targetSpn;
+  uint contextAttr;
 
 	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
@@ -193,31 +196,44 @@ struct ClientAuth
 		this.credentialsExpiry = lifetime;
 		return tuple(lifetime, base.credentials);
 	}
-
-
-	/// Perform *one* step of the client authentication process.
-	auto authorize(string data)
+	/// Perform *one* step of the server authentication process.
+	auto authorize(string data = null)
 	{
+		SecurityStatus result;
+		bool isFirstStage = (data.length == 0);
+		ubyte[] retBuf;
+		retBuf.length = isFirstStage ? 0 : packageInfo.cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
+		DWORD cbOut = 0;
 
-		bufferDescIn.ulVersion = SECBUFFER_VERSION;
-		bufferDescIn.cBuffers = 1;
-		bufferDescIn.pBuffers = buffersIn.ptr;
+		bufferDescOut.ulVersion = SECBUFFER_VERSION;
+		bufferDescOut.cBuffers = 1;
+		bufferDescOut.pBuffers = buffersOut.ptr;
 
-		buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
-		buffersIn[0].BufferType = SECBUFFER_TOKEN;
-		buffersIn[0].pvBuffer = cast(void*)data.toStringz;
-
-		bufferDescIn.ulVersion = SECBUFFER_VERSION;
-		bufferDescIn.cBuffers = 1;
-		bufferDescIn.pBuffers = buffersOut.ptr;
-
-		buffersOut[0].cbBuffer = this.packageInfo.cbMaxToken;
+		buffersOut[0].cbBuffer = cbOut;
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
-		buffersOut[0].pvBuffer = null;
+		buffersOut[0].pvBuffer = retBuf.ptr;
 
-		auto result = initializeSecurityContext(this.credentials, this.context, targetSecurityContextProvider, cast(uint)this.securityContextFlags, 0UL,cast(uint)this.dataRep, bufferDescIn, bufferDescOut);
+		secBufferDescOut.cbBuffer = this.packageInfo.cbMaxToken;
+		secBufferDescOut.BufferType = SECBUFFER_TOKEN;
+
+		if(!isFirstStage)
+		{
+			bufferDescIn.ulVersion = SECBUFFER_VERSION;
+			bufferDescIn.cBuffers = 1;
+			bufferDescIn.pBuffers = buffersIn.ptr;
+
+			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
+			buffersIn[0].BufferType = SECBUFFER_TOKEN;
+			buffersIn[0].pvBuffer = data.toStringz;
+			result = initializeSecurityContext(this.credentials, this.context, this.buffersIn, this.securityContextFlags, this.dataRep, secBufferDescOut);
+		}
+		else
+		{
+			result = initializeSecurityContext(this.credentials, this.context, null, this.securityContextFlags, this.dataRep, secBufferDescOut);
+		}
+
 		this.contextAttr = result[0];
 		this.credentialsExpiry = result[1];
 		auto securityStatus = result[2];
@@ -233,58 +249,76 @@ struct ClientAuth
 
 /+
 
+
+
 /// Manages the server side of an SSPI authentication handshake
 struct ServerAuth
 {
 	BaseAuth base;
 	alias base this;
-	string spn;
+	string packageName;
 	ulong datarap;
 	IscReq securityContextFlags;
 	void* packageInfo;
 	DateTime credentialsExpiry;
-	this(string packageName, string spn = "", IscReq securityContextFlags = 0UL, ulong datarep = SECURITY_NETWORK_DREP)
+	bool isAuthenticated;
+
+	this(string packageName, securityContextFlags = 0UL, ulong datarep = SECURITY_NETWORK_DREP)
 	{
-		this.spn = spn;
+		this.packageName = packageName;
 		this.datarep = datarep;
 
 		this.securityContextFlags = (securityContextFlags==0) ? 
 	    		(ASC_REQ_INTEGRITY|ASC_REQ_SEQUENCE_DETECT | ASC_REQ_REPLAY_DETECT|ASC_REQ_CONFIDENTIALITY) :
 			securityContextFlags;
-
-		this.packageInfo=QuerySecurityPackageInfo(packageName);
-		this.credentialsExpiry = AcquireCredentialsHandle(spn, this.packageInfo.Name, SECPKG_CRED_INBOUND, None, None);
 		base = BaseAuth();
 	}
 
-	/// Perform *one* step of the server authentication process.
-	auto authorize(string data)
+	void setup()
 	{
+
+		packageInfo = QuerySecurityPackageInfo(packageName);
+		this.credentialsExpiry = AcquireCredentialsHandle(packageName, this.packageInfo.Name, SECPKG_CRED_INBOUND, null, null);
+	}
+
+	/// Perform *one* step of the server authentication process.
+	auto authorize(string data = null)
+	{
+		SecurityStatus result;
+		bool isFirstStage = (data.length == 0);
+		ubyte[] retBuf;
+		retBuf.length = isFirstStage ? 0 : packageInfo.cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
+		DWORD cbOut = 0;
 
-		bufferDescIn.ulVersion = SECBUFFER_VERSION;
-		bufferDescIn.cBuffers = 1;
-		bufferDescIn.pBuffers = buffersIn.ptr;
+		bufferDescOut.ulVersion = SECBUFFER_VERSION;
+		bufferDescOut.cBuffers = 1;
+		bufferDescOut.pBuffers = buffersOut.ptr;
 
-		buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
-		buffersIn[0].BufferType = SECBUFFER_TOKEN;
-		buffersIn[0].pvBuffer = data.toStringz;
-
-		bufferDescIn.ulVersion = SECBUFFER_VERSION;
-		bufferDescIn.cBuffers = 1;
-		bufferDescIn.pBuffers = buffersOut.ptr;
-
-		buffersOut[0].cbBuffer = this.packageInfo.cbMaxToken;
+		buffersOut[0].cbBuffer = cbOut;
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
-		buffersOut[0].pvBuffer = null;
+		buffersOut[0].pvBuffer = retBuf.ptr;
 
-		// input context handle should be NULL on first call
-		// if (this.context is null)
-			// this.context = ?? FIXME PyCtxtHandleType()
 		secBufferDescOut.cbBuffer = this.packageInfo.cbMaxToken;
 		secBufferDescOut.BufferType = SECBUFFER_TOKEN;
-		auto result = initializeSecurityContext(this.credentials, this.context, this.buffersIn, this.securityContextFlags, this.dataRep, secBufferDescOut);
+
+		if(!isFirstStage)
+		{
+			bufferDescIn.ulVersion = SECBUFFER_VERSION;
+			bufferDescIn.cBuffers = 1;
+			bufferDescIn.pBuffers = buffersIn.ptr;
+
+			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
+			buffersIn[0].BufferType = SECBUFFER_TOKEN;
+			buffersIn[0].pvBuffer = data.toStringz;
+			result = initializeSecurityContext(this.credentials, this.context, this.buffersIn, this.securityContextFlags, this.dataRep, secBufferDescOut);
+		}
+		else
+		{
+			result = initializeSecurityContext(this.credentials, this.context, null, this.securityContextFlags, this.dataRep, secBufferDescOut);
+		}
+
 		this.contextAttr = result[0];
 		this.contextExpiry = result[1];
 		auto securityStatus = result[2];
@@ -297,6 +331,4 @@ struct ServerAuth
 
 	}
 }
-
 +/
-
