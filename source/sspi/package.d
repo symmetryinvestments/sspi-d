@@ -18,20 +18,24 @@ import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
 import sspi.defines;
 import sspi.helpers;
-
-
+import std.datetime:DateTime;
+import std.string:toStringz,fromStringz;
+import std.conv:to;
+import std.typecons:tuple;
+import std.utf:toUTF16z;
+import std.exception;
 
 struct BaseAuth
 {
-	SecHandle* context;
+	SecHandle context;
 	CredHandle credentials;
-	long nextSequenceNumber;
+	uint nextSequenceNumber;
 	bool isAuthenticated;
 	
 	/// Reset everything to an unauthorized state
 	void reset()
 	{
-		this.context = null;
+		this.context = SecHandle.init;
 		this.isAuthenticated = false;
 		this.nextSequenceNumber = 0;
 	}
@@ -39,7 +43,7 @@ struct BaseAuth
 	/// Get the next sequence number for a transmission.  Default implementation is to increment a counter
 	auto getNextSequenceNumber()
 	{
-		ret = nextSequenceNumber;
+		auto ret = nextSequenceNumber;
 		nextSequenceNumber++;
 		return ret;
 	}
@@ -84,16 +88,16 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = trailer.length +1;
+		buffers[0].cbBuffer = trailer.length.to!uint + 1;
 		buffers[0].BufferType = SECBUFFER_TOKEN;
 		buffers[0].pvBuffer = trailer.toStringz;
 
-		buffers[1].cbBuffer = data.length+1; // FIXME - might be null terminated already
+		buffers[1].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[1].BufferType = SECBUFFER_DATA;
 		buffers[1].pvBuffer = data.toStringz;
 
 		auto fQOP = context.decryptMessage(bufferDesc, getNextSequenceNumber());
-		return buffers[0].pvBuffer.fromStringz;
+		return (cast(char*)buffers[0].pvBuffer).fromStringz;
 	}
 
 	/// sign a string suitable for transmission, returning the signature.
@@ -110,14 +114,14 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length +1; // FIXME - might be null terminated already
+		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = data.toStringz;
+		buffers[0].pvBuffer = cast(void*) data.toStringz;
 
 		buffers[1].cbBuffer = trailerSize;
 		buffers[1].BufferType = SECBUFFER_TOKEN;
-		context.makeSignature(0,bufferDesc,this.getNextSeqNum());
-		return buffers[1].cbBuffer.fromStringz;
+		context.makeSignature(0,bufferDesc,this.getNextSequenceNumber());
+		return (cast(char*)buffers[1].cbBuffer).fromStringz.idup;
 	}
 
         /// Verifies data and its signature.  If verification fails, an sspi.error will be raised.
@@ -129,15 +133,15 @@ struct BaseAuth
 		bufferDesc.cBuffers = 2;
 		bufferDesc.pBuffers = buffers.ptr;
 
-		buffers[0].cbBuffer = data.length +1; // FIXME - might be null terminated already
+		buffers[0].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[0].BufferType = SECBUFFER_DATA;
-		buffers[0].pvBuffer = data.toStringz;
+		buffers[0].pvBuffer = cast(void*) data.toStringz;
 
-		buffers[1].cbBuffer = sig.length +1; // FIXME
+		buffers[1].cbBuffer = sig.length.to!uint +1; // FIXME
 		buffers[1].BufferType = SECBUFFER_TOKEN;
-		buffers[1].pvBuffer = sig.toStringz;
+		buffers[1].pvBuffer = cast(void*) sig.toStringz;
 
-		context.verifySignature(bufferDesc, this.getNextSeqNum());
+		context.verifySignature(bufferDesc, this.getNextSequenceNumber());
 	}
 }
 
@@ -154,21 +158,24 @@ struct ClientAuth
 						IscReq.replayDetect	| IscReq.confidentiality;
 
 	IscReq securityContextFlags;
-	string dataRep;
+	long dataRep;
 	string targetSecurityContextProvider;
-	PSecPkgInfoW* packageInfo;
-	TimeSpan credentialsExpiry;
+	SecPkgInfoW* packageInfo;
+  TimeStamp credentialsExpiry;
+  string targetSpn;
+  uint contextAttr;
 
-	this(string packageName, string clientName, AuthInfo authInfo = AuthInfo.init,
+	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
 		IscReq securityContextFlags = DefaultSecurityContextFlags, long dataRep = SECURITY_NETWORK_DREP)
 	{
 		this.securityContextFlags = securityContextFlags;
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
-		this.packageInfo = querySecurityContextPackageInfo(packageName);
-		this.credentialsExpiry = acquireCredentialsHandle(clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
-				null, authInfo);
+		this.packageInfo = querySecurityPackageInfo(packageName);
+        auto result = acquireCredentialsHandle(packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+		this.credentialsExpiry = result[0];
+        this.base.credentials = result[1];
 	}
 
 
@@ -177,7 +184,7 @@ struct ClientAuth
 		TimeStamp lifetime;
 		SecurityStatus securityStatus = cast(SecurityStatus) AcquireCredentialsHandleW(
 									null,
-									packageName.toStringz,
+									cast(wchar*) packageName.toUTF16z,
 									SECPKG_CRED_OUTBOUND,
 									null,
 									null,
@@ -228,19 +235,19 @@ struct ClientAuth
 		}
 
 		this.contextAttr = result[0];
-		this.contextExpiry = result[1];
+		this.credentialsExpiry = result[1];
 		auto securityStatus = result[2];
 		this.context = result[3];
 
-		if (securityStatus & SEC_I_COMPLETE_NEEDED || securityStatus & SEC_I_COMPLETE_AND_CONTINUE)
+		if (securityStatus & SecurityStatus.completeNeeded || securityStatus & SecurityStatus.completeAndContinue)
 			context.completeAuthToken(bufferDescOut);
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, buffers[0]);
+		return tuple(securityStatus, buffersOut[0]);
 
 	}
 }
 
-
+/+
 
 
 
@@ -251,7 +258,7 @@ struct ServerAuth
 	alias base this;
 	string packageName;
 	ulong datarap;
-	ulong securityContextFlags;
+	IscReq securityContextFlags;
 	void* packageInfo;
 	DateTime credentialsExpiry;
 	bool isAuthenticated;
@@ -324,5 +331,4 @@ struct ServerAuth
 
 	}
 }
-
-
++/

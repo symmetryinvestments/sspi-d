@@ -16,15 +16,19 @@ module sspi.helpers;
 version(Windows):
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
-
-
+import core.sys.windows.security;
+import std.exception;
+import sspi.defines;
+import std.typecons:tuple;
+import std.conv:to;
+import std.utf:toUTF16z;
 
 bool secSuccess(SECURITY_STATUS status)
 {
 	return status >= 0;
 }
 
-T queryContextAttributes(T)(ref _SecHandle context, SecPackageAttribute attribute)
+T queryContextAttributes(T)(ref SecHandle context, SecPackageAttribute attribute)
 {
 	T ret;
 	auto securityStatus = QueryContextAttributesW(&context,attribute,cast(void*)&ret);
@@ -32,29 +36,29 @@ T queryContextAttributes(T)(ref _SecHandle context, SecPackageAttribute attribut
 	return ret;
 }
 
-ulong decryptMessage(ref _SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
+uint decryptMessage(ref SecHandle context, ref SecBufferDesc message, uint messageSeqNo)
 {
-	ulong fQOP;
+	uint fQOP;
 	auto securityStatus = DecryptMessage(&context,&message,messageSeqNo,&fQOP);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 	return fQOP;
 }
 
-void encryptMessage(ref _SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
+void encryptMessage(ref SecHandle context, uint fQOP, ref SecBufferDesc message, uint messageSeqNo)
 {
-	auto securityStatus = EncryptMessageW(&context,fQOP, &message,cast(void*)&ret);
+	auto securityStatus = EncryptMessage(&context,fQOP, &message,messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
-void makeSignature(ref _SecHandle context, ulong fQOP, ref SecBufferDesc message, ulong messageSeqNo)
+void makeSignature(ref SecHandle context, uint fQOP, ref SecBufferDesc message, uint messageSeqNo)
 {
 	auto securityStatus = MakeSignature(&context,fQOP,&message,messageSeqNo);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 
-ulong verifySignature(ref _SecHandle context, ref SecBufferDesc message, ulong messageSeqNo)
+uint verifySignature(ref SecHandle context, ref SecBufferDesc message, uint messageSeqNo)
 {
-	ulong pfQOP;
+	uint pfQOP;
 	auto securityStatus = VerifySignature(&context,&message,messageSeqNo,&pfQOP);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 	return pfQOP;
@@ -64,18 +68,23 @@ ulong verifySignature(ref _SecHandle context, ref SecBufferDesc message, ulong m
 auto querySecurityPackageInfo(string packageName)
 {
 	PSecPkgInfoW ret;
-	SecurityStatus securityStatus = cast(SecurityStatus) QuerySecurityPackageInfoW(packageName,&ret);
+	SecurityStatus securityStatus = cast(SecurityStatus) QuerySecurityPackageInfoW(cast(wchar*)packageName.toUTF16z,&ret);
 	enforce(securityStatus.secSuccess, securityStatus.to!string);
 	return ret;
 }
 
-auto initializeSecurityContext(ref CredHandle credentials, SecHandle context, string targetName, ulong fContextReq, ulong reserved1, ulong targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
+auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
 {
-	ulong contextAttribute;
+	uint contextAttribute;
 	SecHandle newContext;
 	TimeStamp expiry;
-	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, context, targetName, fcontextReq, 0, targetDataRep,&input,0,&newContext,&output,&expiry);
+	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,&input,0,&newContext,&outputBufferDesc,&contextAttribute,&expiry);
 	return tuple(contextAttribute,expiry,securityStatus,newContext,outputBufferDesc);
 }
 
+void completeAuthToken(ref SecHandle context, ref SecBufferDesc token)
+{
+    auto securityStatus = CompleteAuthToken(&context,&token);
+    enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
+}
 
