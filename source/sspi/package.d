@@ -16,6 +16,7 @@ module sspi;
 version(Windows):
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
+import core.sys.windows.windef:DWORD;
 import sspi.defines;
 import sspi.helpers;
 import std.datetime:DateTime;
@@ -50,10 +51,10 @@ struct BaseAuth
 
 	auto encrypt(string data)
 	{
-		auto packageInfo = context.queryContextAttributes!SecPkgNegInfo(SecPackageAttribute.info);
+		// auto packageInfo = context.queryContextAttributes!SecPkgNegInfo(SecPackageAttribute.info);
 		auto packageSizes= context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
 		auto maxSignatureSize = packageSizes.cbMaxSignature;
-		auto trailerSize = packageSize.cbSecurityTrailer;
+		auto trailerSize = packageSizes.cbSecurityTrailer;
 
 		SecBuffer[2] buffers;
 		SecBufferDesc bufferDesc;
@@ -69,9 +70,9 @@ struct BaseAuth
 		buffers[0].BufferType = SECBUFFER_TOKEN;
 		buffers[0].pvBuffer = data.ptr + DWORD.sizeof;
 
-		buffers[1].cbBuffer = data.length;
+		buffers[1].cbBuffer = data.length.to!uint;
 		buffers[1].BufferType = SECBUFFER_DATA;
-		buffers[1].pvBuffer = data.ptr;
+		buffers[1].pvBuffer = cast(void*)data.ptr;
 
 		context.encryptMessage(0, bufferDesc, getNextSequenceNumber());
 		return tuple(buffers[0],buffers[1]);
@@ -90,11 +91,11 @@ struct BaseAuth
 
 		buffers[0].cbBuffer = trailer.length.to!uint + 1;
 		buffers[0].BufferType = SECBUFFER_TOKEN;
-		buffers[0].pvBuffer = trailer.toStringz;
+		buffers[0].pvBuffer = cast(void*)trailer.toStringz;
 
 		buffers[1].cbBuffer = data.length.to!uint +1; // FIXME - might be null terminated already
 		buffers[1].BufferType = SECBUFFER_DATA;
-		buffers[1].pvBuffer = data.toStringz;
+		buffers[1].pvBuffer = cast(void*)data.toStringz;
 
 		auto fQOP = context.decryptMessage(bufferDesc, getNextSequenceNumber());
 		return (cast(char*)buffers[0].pvBuffer).fromStringz;
@@ -104,8 +105,8 @@ struct BaseAuth
 	/// Passing the data and signature to verify will determine if the data is unchanged.
 	string sign(string data)
 	{
-		auto packageInfo = context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
-		auto trailerSize = packageInfo.cbMaxSignature;
+		auto packageSizes = context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
+		auto trailerSize = packageSizes.cbMaxSignature;
 
 		SecBuffer[2] buffers;
 		SecBufferDesc bufferDesc;
@@ -161,9 +162,9 @@ struct ClientAuth
 	long dataRep;
 	string targetSecurityContextProvider;
 	SecPkgInfoW* packageInfo;
-  TimeStamp credentialsExpiry;
-  string targetSpn;
-  uint contextAttr;
+	TimeStamp credentialsExpiry;
+	string packageName;
+	uint contextAttr;
 
 	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
@@ -173,9 +174,10 @@ struct ClientAuth
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
 		this.packageInfo = querySecurityPackageInfo(packageName);
-        auto result = acquireCredentialsHandle(packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+		auto result = acquireCredentialsHandle(packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
 		this.credentialsExpiry = result[0];
-        this.base.credentials = result[1];
+		this.base.credentials = result[1];
+		this.packageName = packageName;
 	}
 
 
@@ -215,23 +217,24 @@ struct ClientAuth
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = retBuf.ptr;
 
-		secBufferDescOut.cbBuffer = this.packageInfo.cbMaxToken;
-		secBufferDescOut.BufferType = SECBUFFER_TOKEN;
+		bufferDescOut.cbBuffer = packageInfo.cbMaxToken;
+		bufferDescOut.BufferType = SECBUFFER_TOKEN;
 
+		{
 		if(!isFirstStage)
 		{
 			bufferDescIn.ulVersion = SECBUFFER_VERSION;
 			bufferDescIn.cBuffers = 1;
 			bufferDescIn.pBuffers = buffersIn.ptr;
 
-			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
+			buffersIn[0].cbBuffer = packageInfo.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
 			buffersIn[0].pvBuffer = data.toStringz;
-			result = initializeSecurityContext(	credentials, context, buffersIn, securityContextFlags, dataRep, secBufferDescOut);
+			result = initializeSecurityContext(credentials, packageName, context, securityContextFlags, 0,dataRep, buffersIn,bufferDescOut);
 		}
 		else
 		{
-			result = initializeSecurityContext(	credentials, context, null, 	securityContextFlags, dataRep, secBufferDescOut);
+			result = initializeSecurityContext(credentials, packageName,context, securityContextFlags, 0,dataRep, null,bufferDescOut);
 		}
 
 		this.contextAttr = result[0];
@@ -297,8 +300,8 @@ struct ServerAuth
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = retBuf.ptr;
 
-		secBufferDescOut.cbBuffer = this.packageInfo.cbMaxToken;
-		secBufferDescOut.BufferType = SECBUFFER_TOKEN;
+		bufferDescOut.cbBuffer = this.packageInfo.cbMaxToken;
+		bufferDescOut.BufferType = SECBUFFER_TOKEN;
 
 		if(!isFirstStage)
 		{
@@ -309,11 +312,11 @@ struct ServerAuth
 			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
 			buffersIn[0].pvBuffer = data.toStringz;
-			result = initializeSecurityContext(	credentials, context, buffersIn, securityContextFlags, dataRep, secBufferDescOut);
+			result = initializeSecurityContext(	credentials, context, buffersIn, securityContextFlags, dataRep, bufferDescOut);
 		}
 		else
 		{
-			result = initializeSecurityContext(	credentials, context, null, 	securityContextFlags, dataRep, secBufferDescOut);
+			result = initializeSecurityContext(	credentials, context, null, 	securityContextFlags, dataRep, bufferDescOut);
 		}
 
 		this.contextAttr = result[0];
