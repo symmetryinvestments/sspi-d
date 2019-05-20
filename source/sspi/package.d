@@ -26,6 +26,8 @@ import std.typecons:tuple;
 import std.utf:toUTF16z;
 import std.exception;
 
+enum cbMaxMessage  = 12_000; // from SSPI MS example
+
 struct BaseAuth
 {
 	SecHandle context;
@@ -227,11 +229,11 @@ struct ClientAuth
 			buffersIn[0].cbBuffer = packageSizes.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
 			buffersIn[0].pvBuffer = cast(void*) data.toStringz;
-			result = initializeSecurityContext(credentials, context, packageName, securityContextFlags, 0,dataRep, bufferDescIn,bufferDescOut);
+			result = initializeSecurityContext(credentials, context, packageName, cast(uint)securityContextFlags, 0U, cast(uint)dataRep,bufferDescIn,bufferDescOut);
 		}
 		else
 		{
-			result = initializeSecurityContext(credentials, context, packageName, securityContextFlags, 0,dataRep, null,bufferDescOut);
+			result = initializeSecurityContext(credentials, context, packageName, cast(uint)securityContextFlags, 0, cast(uint)dataRep,null,bufferDescOut);
 		}
 
 		this.contextAttr = result.contextAttribute;
@@ -284,7 +286,7 @@ struct ServerAuth
 		SecurityStatus result;
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
-		retBuf.length = isFirstStage ? 0 : packageInfo.cbMaxMessage;
+		retBuf.length = isFirstStage ? 0 : cbMaxMessage; // packageInfo.cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
 		DWORD cbOut = 0;
