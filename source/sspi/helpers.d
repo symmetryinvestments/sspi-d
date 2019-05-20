@@ -82,10 +82,10 @@ struct SecurityContextResult
 	SecBufferDesc outputBufferDesc;
 }
 
-auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, const(SecBufferDesc)* input, ref SecBufferDesc outputBufferDesc)
+auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, SecBufferDesc* input, ref SecBufferDesc outputBufferDesc)
 {
 	SecurityContextResult ret;
-	ret.securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,&input,0,&ret.newContext,&ret.outputBufferDesc,&ret.contextAttribute,&ret.expiry);
+	ret.securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,input,0,&ret.newContext,&ret.outputBufferDesc,&ret.contextAttribute,&ret.expiry);
 	return ret;
 }
 
