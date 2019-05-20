@@ -70,7 +70,7 @@ struct BaseAuth
 		outputData.length = trailerSize + data.length + DWORD.sizeof;
 		buffers[0].cbBuffer = trailerSize;
 		buffers[0].BufferType = SECBUFFER_TOKEN;
-		buffers[0].pvBuffer = cast(void*)data.ptr + cast(ptr_diff_t) DWORD.sizeof;
+		buffers[0].pvBuffer = cast(void*)data.ptr + cast(ptrdiff_t) DWORD.sizeof;
 
 		buffers[1].cbBuffer = data.length.to!uint;
 		buffers[1].BufferType = SECBUFFER_DATA;
@@ -207,7 +207,7 @@ struct ClientAuth
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
 		auto packageSizes= context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
-		retBuf.length = isFirstStage ? 0 : packageSizes.cbMaxMessage;
+		retBuf.length = isFirstStage ? 0 : cbMaxMessage; // packageSizes.cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
 		DWORD cbOut = 0;
@@ -233,7 +233,7 @@ struct ClientAuth
 		}
 		else
 		{
-			result = initializeSecurityContext(credentials, context, packageName, cast(uint)securityContextFlags, 0, cast(uint)dataRep,null,bufferDescOut);
+			result = initializeSecurityContext(credentials, context, packageName, cast(uint)securityContextFlags, 0UL, cast(uint)dataRep,null,bufferDescOut);
 		}
 
 		this.contextAttr = result.contextAttribute;
