@@ -68,7 +68,7 @@ struct BaseAuth
 		outputData.length = trailerSize + data.length + DWORD.sizeof;
 		buffers[0].cbBuffer = trailerSize;
 		buffers[0].BufferType = SECBUFFER_TOKEN;
-		buffers[0].pvBuffer = data.ptr + DWORD.sizeof;
+		buffers[0].pvBuffer = cast(void*)data.ptr + cast(ptr_diff_t) DWORD.sizeof;
 
 		buffers[1].cbBuffer = data.length.to!uint;
 		buffers[1].BufferType = SECBUFFER_DATA;
@@ -201,10 +201,11 @@ struct ClientAuth
 	/// Perform *one* step of the server authentication process.
 	auto authorize(string data = null)
 	{
-		SecurityStatus result;
+		SecurityContextResult result;
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
-		retBuf.length = isFirstStage ? 0 : packageInfo.cbMaxMessage;
+		auto packageSizes= context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
+		retBuf.length = isFirstStage ? 0 : packageSizes.cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
 		DWORD cbOut = 0;
@@ -217,29 +218,26 @@ struct ClientAuth
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = retBuf.ptr;
 
-		bufferDescOut.cbBuffer = packageInfo.cbMaxToken;
-		bufferDescOut.BufferType = SECBUFFER_TOKEN;
-
 		if(!isFirstStage)
 		{
 			bufferDescIn.ulVersion = SECBUFFER_VERSION;
 			bufferDescIn.cBuffers = 1;
 			bufferDescIn.pBuffers = buffersIn.ptr;
 
-			buffersIn[0].cbBuffer = packageInfo.cbMaxToken;
+			buffersIn[0].cbBuffer = packageSizes.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
-			buffersIn[0].pvBuffer = data.toStringz;
-			result = initializeSecurityContext(credentials, packageName, context, securityContextFlags, 0,dataRep, buffersIn,bufferDescOut);
+			buffersIn[0].pvBuffer = cast(void*) data.toStringz;
+			result = initializeSecurityContext(credentials, context, packageName, securityContextFlags, 0,dataRep, bufferDescIn,bufferDescOut);
 		}
 		else
 		{
-			result = initializeSecurityContext(credentials, packageName,context, securityContextFlags, 0,dataRep, null,bufferDescOut);
+			result = initializeSecurityContext(credentials, context, packageName, securityContextFlags, 0,dataRep, null,bufferDescOut);
 		}
 
-		this.contextAttr = result[0];
-		this.credentialsExpiry = result[1];
-		auto securityStatus = result[2];
-		this.context = result[3];
+		this.contextAttr = result.contextAttribute;
+		this.credentialsExpiry = result.expiry;
+		auto securityStatus = result.securityStatus;
+		this.context = result.newContext;
 
 		if (securityStatus & SecurityStatus.completeNeeded || securityStatus & SecurityStatus.completeAndContinue)
 			context.completeAuthToken(bufferDescOut);

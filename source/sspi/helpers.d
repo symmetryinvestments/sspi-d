@@ -73,13 +73,19 @@ auto querySecurityPackageInfo(string packageName)
 	return ret;
 }
 
-auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
+struct SecurityContextResult
 {
 	uint contextAttribute;
-	SecHandle newContext;
 	TimeStamp expiry;
-	SecurityStatus securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,&input,0,&newContext,&outputBufferDesc,&contextAttribute,&expiry);
-	return tuple(contextAttribute,expiry,securityStatus,newContext,outputBufferDesc);
+	SecurityStatus securityStatus;
+	SecHandle newContext;
+	SecBufferDesc outputBufferDesc;
+}
+auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
+{
+	SecurityContextResult ret;
+	ret.securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,&input,0,&ret.newContext,&ret.outputBufferDesc,&ret.contextAttribute,&ret.expiry);
+	return ret;
 }
 
 void completeAuthToken(ref SecHandle context, ref SecBufferDesc token)
