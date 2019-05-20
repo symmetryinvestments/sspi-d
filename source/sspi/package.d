@@ -244,7 +244,7 @@ struct ClientAuth
 		if (securityStatus & SecurityStatus.completeNeeded || securityStatus & SecurityStatus.completeAndContinue)
 			context.completeAuthToken(bufferDescOut);
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, buffersOut[0]);
+		return tuple(securityStatus, (cast(char*)(buffersOut[0].pvBuffer))[0..buffers[0]cbBuffer]);
 
 	}
 }
