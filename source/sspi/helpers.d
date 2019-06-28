@@ -28,10 +28,10 @@ bool secSuccess(SECURITY_STATUS status)
 	return status >= 0;
 }
 
-T queryContextAttributes(T)(ref SecHandle context, SecPackageAttribute attribute)
+T queryContextAttributes(T)(SecHandle* context, SecPackageAttribute attribute)
 {
 	T ret;
-	auto securityStatus = QueryContextAttributesW(&context,attribute,cast(void*)&ret);
+	auto securityStatus = QueryContextAttributesW(context,attribute,cast(void*)&ret);
 	enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 	return ret;
 }
@@ -78,25 +78,40 @@ struct SecurityContextResult
 	uint contextAttribute;
 	TimeStamp expiry;
 	SecurityStatus securityStatus;
-	SecHandle newContext;
 	SecBufferDesc outputBufferDesc;
 }
 
-auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, SecBufferDesc* input, ref SecBufferDesc outputBufferDesc)
+auto initializeSecurityContext(ref CredHandle credentials, SecHandle* context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, SecBufferDesc* input, ref SecBufferDesc outputBufferDesc)
 {
 	SecurityContextResult ret;
-	ret.securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, &context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,input,0,&ret.newContext,&ret.outputBufferDesc,&ret.contextAttribute,&ret.expiry);
+	ret.outputBufferDesc = outputBufferDesc;
+	ret.securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials, context, cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,input,0,context,&ret.outputBufferDesc,&ret.contextAttribute,&ret.expiry);
 	return ret;
 }
 
-auto initializeSecurityContext(ref CredHandle credentials, ref SecHandle context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
+auto initializeSecurityContext(ref CredHandle credentials, SecHandle* context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc input, ref SecBufferDesc outputBufferDesc)
 {
 	return initializeSecurityContext(credentials, context, targetName, fContextReq, reserved1, targetDataRep,&input,outputBufferDesc);
 }
 
-void completeAuthToken(ref SecHandle context, ref SecBufferDesc token)
+auto initializeSecurityContextInitial(ref CredHandle credentials, SecHandle* context, string targetName, uint fContextReq, ulong reserved1, uint targetDataRep, ref SecBufferDesc outputBufferDesc)
 {
-    auto securityStatus = CompleteAuthToken(&context,&token);
+	SecurityContextResult ret;
+	ret.outputBufferDesc = outputBufferDesc;
+	version(Trace)
+	{
+		import std.stdio;
+		writefln("targetName: %s",targetName);
+		writefln("fcontextReq: %s",fContextReq);
+		writeln("targetDataRep: %s",targetDataRep);
+	}
+	ret.securityStatus = cast(SecurityStatus) InitializeSecurityContextW(&credentials,null,(targetName.length==0)? null : cast(wchar*)targetName.toUTF16z, fContextReq, 0, targetDataRep,null,0,context,&ret.outputBufferDesc,&ret.contextAttribute,&ret.expiry);
+	return ret;
+}
+
+void completeAuthToken(SecHandle* context, ref SecBufferDesc token)
+{
+    auto securityStatus = CompleteAuthToken(context,&token);
     enforce(securityStatus.secSuccess, (cast(SecurityStatus)securityStatus).to!string);
 }
 

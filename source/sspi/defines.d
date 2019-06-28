@@ -22,6 +22,8 @@ enum SecPkgFlag
 }
 
 
+enum SECPKG_ATTR_NEGOTIATION_PACKAGE = 0x80000081;
+
 enum SecPackageAttribute
 {
 	authority = SECPKG_ATTR_AUTHORITY,
@@ -38,6 +40,7 @@ enum SecPackageAttribute
 	remoteCred = SECPKG_ATTR_REMOTE_CRED,
 	sizes = SECPKG_ATTR_SIZES,
 	streamSizes = SECPKG_ATTR_STREAM_SIZES,
+	negotiationInfo = SECPKG_ATTR_NEGOTIATION_PACKAGE,
 }
 
 struct SecPkgContext_NegotiationInfoW

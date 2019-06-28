@@ -54,7 +54,7 @@ struct BaseAuth
 	auto encrypt(string data)
 	{
 		// auto packageInfo = context.queryContextAttributes!SecPkgNegInfo(SecPackageAttribute.info);
-		auto packageSizes= context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
+		auto packageSizes= queryContextAttributes!SecPkgContext_Sizes(&context,SecPackageAttribute.sizes);
 		auto maxSignatureSize = packageSizes.cbMaxSignature;
 		auto trailerSize = packageSizes.cbSecurityTrailer;
 
@@ -107,7 +107,7 @@ struct BaseAuth
 	/// Passing the data and signature to verify will determine if the data is unchanged.
 	string sign(string data)
 	{
-		auto packageSizes = context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
+		auto packageSizes = queryContextAttributes!SecPkgContext_Sizes(&context,SecPackageAttribute.sizes);
 		auto trailerSize = packageSizes.cbMaxSignature;
 
 		SecBuffer[2] buffers;
@@ -157,8 +157,7 @@ struct ClientAuth
 	BaseAuth base;
 	alias base this;
 
-	enum DefaultSecurityContextFlags = 	IscReq.integrity 	| IscReq.sequenceDetect |
-						IscReq.replayDetect	| IscReq.confidentiality;
+	enum DefaultSecurityContextFlags = 	IscReq.integrity 	| IscReq.sequenceDetect | IscReq.replayDetect	| IscReq.confidentiality;
 
 	IscReq securityContextFlags;
 	long dataRep;
@@ -172,22 +171,27 @@ struct ClientAuth
 		string targetSecurityContextProvider = null,
 		IscReq securityContextFlags = DefaultSecurityContextFlags, long dataRep = SECURITY_NETWORK_DREP)
 	{
+		import std.stdio;
+		import std.string:fromStringz;
+
 		this.securityContextFlags = securityContextFlags;
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
 		this.packageInfo = querySecurityPackageInfo(packageName);
-		auto result = acquireCredentialsHandle(packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+		auto result = acquireCredentialsHandle(clientName,packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
 		this.credentialsExpiry = result[0];
 		this.base.credentials = result[1];
+		stderr.writeln("lifetime: ",result[0]);
+		stderr.writeln("credentials:",result[1]);
 		this.packageName = packageName;
 	}
 
 
-	auto acquireCredentialsHandle(string packageName)
+	auto acquireCredentialsHandle(string userName, string packageName)
 	{
 		TimeStamp lifetime;
 		SecurityStatus securityStatus = cast(SecurityStatus) AcquireCredentialsHandleW(
-									null,
+									cast(wchar*) userName.toUTF16z,
 									cast(wchar*) packageName.toUTF16z,
 									SECPKG_CRED_OUTBOUND,
 									null,
@@ -201,16 +205,17 @@ struct ClientAuth
 		return tuple(lifetime, base.credentials);
 	}
 	/// Perform *one* step of the server authentication process.
-	auto authorize(string data = null)
+	auto authorize(ubyte[] data=[])
 	{
+		import std.stdio;
+		import std.conv:to;
 		SecurityContextResult result;
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
-		auto packageSizes= context.queryContextAttributes!SecPkgContext_Sizes(SecPackageAttribute.sizes);
-		retBuf.length = isFirstStage ? 0 : cbMaxMessage; // packageSizes.cbMaxMessage;
+		retBuf.length = cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
-		DWORD cbOut = 0;
+		DWORD cbOut = isFirstStage?retBuf.length.to!int : 0;
 
 		bufferDescOut.ulVersion = SECBUFFER_VERSION;
 		bufferDescOut.cBuffers = 1;
@@ -226,25 +231,45 @@ struct ClientAuth
 			bufferDescIn.cBuffers = 1;
 			bufferDescIn.pBuffers = buffersIn.ptr;
 
-			buffersIn[0].cbBuffer = packageSizes.cbMaxToken;
+			buffersIn[0].cbBuffer = data.length.to!int;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
-			buffersIn[0].pvBuffer = cast(void*) data.toStringz;
-			result = initializeSecurityContext(credentials, context, packageName, cast(uint)securityContextFlags, 0U, cast(uint)dataRep,bufferDescIn,bufferDescOut);
+			buffersIn[0].pvBuffer = cast(void*) data.ptr;
+
+			buffersOut[0].pvBuffer = null;
+			buffersOut[0].cbBuffer   = 0;
+			result = initializeSecurityContext(credentials, &context, packageName, cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY, 0U, cast(uint)dataRep,bufferDescIn,bufferDescOut);
+			bufferDescOut=result.outputBufferDesc;
 		}
 		else
 		{
-			result = initializeSecurityContext(credentials, context, packageName, cast(uint)securityContextFlags, 0UL, cast(uint)dataRep,null,bufferDescOut);
+			buffersOut[0].pvBuffer = null;
+			buffersOut[0].cbBuffer   = 0;
+			result = initializeSecurityContextInitial(credentials, &context, this.targetSecurityContextProvider, cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY, 0UL, cast(uint)dataRep,bufferDescOut);
+			bufferDescOut=result.outputBufferDesc;
+			//auto result2 = queryContextAttributes!SecPkgInfoW(&context,SecPackageAttribute.negotiationInfo);
+			//writeln("package name: ",result2.Name.fromStringz);
 		}
 
+		scope(exit) FreeContextBuffer(cast(void*)result.outputBufferDesc.pBuffers);
 		this.contextAttr = result.contextAttribute;
 		this.credentialsExpiry = result.expiry;
 		auto securityStatus = result.securityStatus;
-		this.context = result.newContext;
 
-		if (securityStatus & SecurityStatus.completeNeeded || securityStatus & SecurityStatus.completeAndContinue)
-			context.completeAuthToken(bufferDescOut);
+		//auto result2 = context.queryContextAttributes!SecPkgInfoW(SecPackageAttribute.negotiationInfo);
+		//writeln("package name: ",result2.Name.fromStringz);
+		if (securityStatus == SecurityStatus.completeNeeded || securityStatus == SecurityStatus.completeAndContinue)
+		{
+			version(Trace) writefln("securityStatus: %s, completeneeded %s completecontinue%s",securityStatus,cast(long)SecurityStatus.completeNeeded,cast(long)SecurityStatus.completeAndContinue);
+			completeAuthToken(&context,bufferDescOut);
+		}
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, (cast(char*)(buffersOut[0].pvBuffer))[0..buffersOut[0].cbBuffer]);
+		auto returnBuffersOut = cast(SecBuffer*)(bufferDescOut.pBuffers);
+		version(Trace)
+		{
+			stderr.writefln("authenticated = %s; %s byte token",securityStatus,returnBuffersOut.cbBuffer);
+			stderr.writeln(this.isAuthenticated,securityStatus,this.credentialsExpiry);
+		}
+		return tuple(securityStatus, ((cast(ubyte*)(returnBuffersOut.pvBuffer)))[0 .. returnBuffersOut.cbBuffer].idup);
 
 	}
 }
@@ -283,6 +308,7 @@ struct ServerAuth
 	/// Perform *one* step of the server authentication process.
 	auto authorize(string data = null)
 	{
+		import std.stdio;
 		SecurityStatus result;
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
@@ -315,7 +341,7 @@ struct ServerAuth
 		}
 		else
 		{
-			result = initializeSecurityContext(	credentials, context, null, 	securityContextFlags, dataRep, bufferDescOut);
+			//result = initializeSecurityContextInitial(	credentials,  null, 	securityContextFlags, dataRep, bufferDescOut);
 		}
 
 		this.contextAttr = result[0];
