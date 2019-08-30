@@ -181,8 +181,6 @@ struct ClientAuth
 		auto result = acquireCredentialsHandle(clientName,packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
 		this.credentialsExpiry = result[0];
 		this.base.credentials = result[1];
-		stderr.writeln("lifetime: ",result[0]);
-		stderr.writeln("credentials:",result[1]);
 		this.packageName = packageName;
 	}
 
@@ -247,7 +245,6 @@ struct ClientAuth
 			result = initializeSecurityContextInitial(credentials, &context, this.targetSecurityContextProvider, cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY, 0UL, cast(uint)dataRep,bufferDescOut);
 			bufferDescOut=result.outputBufferDesc;
 			//auto result2 = queryContextAttributes!SecPkgInfoW(&context,SecPackageAttribute.negotiationInfo);
-			//writeln("package name: ",result2.Name.fromStringz);
 		}
 
 		scope(exit) FreeContextBuffer(cast(void*)result.outputBufferDesc.pBuffers);
@@ -256,7 +253,6 @@ struct ClientAuth
 		auto securityStatus = result.securityStatus;
 
 		//auto result2 = context.queryContextAttributes!SecPkgInfoW(SecPackageAttribute.negotiationInfo);
-		//writeln("package name: ",result2.Name.fromStringz);
 		if (securityStatus == SecurityStatus.completeNeeded || securityStatus == SecurityStatus.completeAndContinue)
 		{
 			version(Trace) writefln("securityStatus: %s, completeneeded %s completecontinue%s",securityStatus,cast(long)SecurityStatus.completeNeeded,cast(long)SecurityStatus.completeAndContinue);
