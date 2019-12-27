@@ -3,6 +3,9 @@ environment:
   - os: Visual Studio 2017
     VS: 15
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+    DC: ldc
+    DVersion: 1.19.0
+    arch: x64
   - DC: dmd
     DVersion: 2.081.1
     arch: x64
