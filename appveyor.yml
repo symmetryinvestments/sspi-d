@@ -1,37 +1,35 @@
 image: Visual Studio 2017
 environment:
     VS: 15
-    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    
-matrix:
-  environment:
-    - DC: ldc
-      DVersion: 1.19.0
-      arch: x64
-    - DC: ldc
-      DVersion: 1.19.0
-      arch: x86
-    - DC: dmd
-      DVersion: 2.081.1
-      arch: x64
-    - DC: dmd
-      DVersion: 2.081.1
-      arch: x86
-    - DC: dmd
-      DVersion: 2.080.1
-      arch: x64
-    - DC: dmd
-      DVersion: 2.079.1
-      arch: x64
-    - DC: dmd
-      DVersion: 2.078.3
-      arch: x64
-    - DC: dmd
-      DVersion: 2.077.1
-      arch: x64
-    - DC: dmd
-      DVersion: 2.076.1
-      arch: x64      
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017    
+    matrix:
+        - DC: ldc
+          DVersion: 1.19.0
+          arch: x64
+        - DC: ldc
+          DVersion: 1.19.0
+          arch: x86
+        - DC: dmd
+          DVersion: 2.081.1
+          arch: x64
+        - DC: dmd
+          DVersion: 2.081.1
+          arch: x86
+        - DC: dmd
+          DVersion: 2.080.1
+          arch: x64
+        - DC: dmd
+          DVersion: 2.079.1
+          arch: x64
+        - DC: dmd
+          DVersion: 2.078.3
+          arch: x64
+        - DC: dmd
+          DVersion: 2.077.1
+          arch: x64
+        - DC: dmd
+          DVersion: 2.076.1
+          arch: x64      
 
 skip_tags: true
 
