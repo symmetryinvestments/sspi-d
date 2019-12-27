@@ -32,7 +32,6 @@ matrix:
       DVersion: 2.076.1
       arch: x64
       
-matrix:
   allow_failures:
     # I'm getting weird occasional errors of...
     #    LINK : fatal error LNK1104: cannot open file 'shell32.lib'
