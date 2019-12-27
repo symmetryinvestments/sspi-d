@@ -1,8 +1,9 @@
+image: Visual Studio 2017
 environment:
-  - os: Visual Studio 2017
     VS: 15
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-  - matrix:
+    
+matrix:
     - DC: ldc
       DVersion: 1.19.0
       arch: x64
@@ -30,6 +31,7 @@ environment:
     - DC: dmd
       DVersion: 2.076.1
       arch: x64
+      
 matrix:
   allow_failures:
     # I'm getting weird occasional errors of...
