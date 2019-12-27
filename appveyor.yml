@@ -161,8 +161,7 @@ before_build:
            $env:PATH += ";C:\ldc2-$($version)-win64-msvc\bin";
            $env:DC = "ldc2";
          }
-  - ps: $env:compilersetup = "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
-  - '"%compilersetup%" %compilersetupargs%'
+  - "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat" '%compilersetupargs%'
 
 build_script:
  - dub build --arch=%Darch% --compiler=%DC% --vverbose
