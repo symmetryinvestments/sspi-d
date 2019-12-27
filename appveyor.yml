@@ -165,8 +165,8 @@ before_build:
   - '"%compilersetup%" %compilersetupargs%'
 
 build_script:
- - echo dummy build script - dont remove me
-
+ - dub build --arch=%Darch% --compiler=%DC% --vverbose
+ 
 test_script:
  - echo %PLATFORM%
  - echo %Darch%
@@ -174,4 +174,4 @@ test_script:
  - echo %DMD%
  - echo %PATH%
  - '%DC% --help'
- - dub test --arch=%Darch% --compiler=%DC%
+ - dub test --arch=%Darch% --compiler=%DC% --vverbose
