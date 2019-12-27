@@ -30,14 +30,7 @@ matrix:
       arch: x64
     - DC: dmd
       DVersion: 2.076.1
-      arch: x64
-      
-  allow_failures:
-    # I'm getting weird occasional errors of...
-    #    LINK : fatal error LNK1104: cannot open file 'shell32.lib'
-    # ...just with this compiler version, and only on Windows/AppVeyor.
-    - DC: dmd
-      DVersion: 2.068.2
+      arch: x64      
 
 skip_tags: true
 
