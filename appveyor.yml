@@ -1,6 +1,8 @@
-platform: x64
 environment:
  matrix:
+  - os: Visual Studio 2017
+    VS: 15
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
   - DC: dmd
     DVersion: 2.081.1
     arch: x64
@@ -159,7 +161,7 @@ before_build:
            $env:PATH += ";C:\ldc2-$($version)-win64-msvc\bin";
            $env:DC = "ldc2";
          }
-  - ps: $env:compilersetup = "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall";
+  - ps: $env:compilersetup = "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
   - '"%compilersetup%" %compilersetupargs%'
 
 build_script:
