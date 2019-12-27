@@ -2,7 +2,7 @@ environment:
   - os: Visual Studio 2017
     VS: 15
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-  matrix:
+  - matrix:
     - DC: ldc
       DVersion: 1.19.0
       arch: x64
