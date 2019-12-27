@@ -1,41 +1,35 @@
 environment:
- matrix:
   - os: Visual Studio 2017
     VS: 15
     APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-    DC: ldc
-    DVersion: 1.19.0
-    arch: x64
-  - DC: dmd
-    DVersion: 2.081.1
-    arch: x64
-  - DC: dmd
-    DVersion: 2.081.1
-    arch: x86
-  - DC: dmd
-    DVersion: 2.080.1
-    arch: x64
-  - DC: dmd
-    DVersion: 2.079.1
-    arch: x64
-  - DC: dmd
-    DVersion: 2.078.3
-    arch: x64
-  - DC: dmd
-    DVersion: 2.077.1
-    arch: x64
-  - DC: dmd
-    DVersion: 2.076.1
-    arch: x64
-  - DC: ldc
-    DVersion: 1.19.0
-    arch: x64
-  - DC: ldc
-    DVersion: 1.18.0
-    arch: x64
-  - DC: ldc
-    DVersion: 1.17.0
-    arch: x64
+  matrix:
+    - DC: ldc
+      DVersion: 1.19.0
+      arch: x64
+    - DC: ldc
+      DVersion: 1.19.0
+      arch: x86
+    - DC: dmd
+      DVersion: 2.081.1
+      arch: x64
+    - DC: dmd
+      DVersion: 2.081.1
+      arch: x86
+    - DC: dmd
+      DVersion: 2.080.1
+      arch: x64
+    - DC: dmd
+      DVersion: 2.079.1
+      arch: x64
+    - DC: dmd
+      DVersion: 2.078.3
+      arch: x64
+    - DC: dmd
+      DVersion: 2.077.1
+      arch: x64
+    - DC: dmd
+      DVersion: 2.076.1
+      arch: x64
 matrix:
   allow_failures:
     # I'm getting weird occasional errors of...
@@ -164,7 +158,7 @@ before_build:
            $env:PATH += ";C:\ldc2-$($version)-win64-msvc\bin";
            $env:DC = "ldc2";
          }
-  - call "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat" x64 8.1
+  - call "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat" %arch% 8.1
 
 build_script:
  - dub build --arch=%Darch% --compiler=%DC% --vverbose
