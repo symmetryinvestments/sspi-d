@@ -200,6 +200,8 @@ void sendBytes(Socket socket, const(ubyte)[] buf)
 ubyte[] receiveBytes(Socket socket, size_t messageLength = 0)
 {
 	import std.array : Appender;
+	import std.conv : to;
+
 	Appender!(ubyte[]) ret;
 	ubyte[1024] buf;
     long cbRead, cbRemaining = messageLength;
@@ -207,7 +209,7 @@ ubyte[] receiveBytes(Socket socket, size_t messageLength = 0)
     while (cbRemaining) 
     {
         cbRead = socket.receive(buf);
-		ret.put(buf[0 .. cbRead]);
+		ret.put(buf[0 .. cbRead.to!size_t]);
         cbRemaining -= cbRead;
     }
     return ret.data;
