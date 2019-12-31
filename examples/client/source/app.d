@@ -194,7 +194,7 @@ ubyte[] receiveMessage(Socket socket)
 
 	ubyte[4] messageLengthBuf;
 	enforce(socket.receive(messageLengthBuf) ==4);
-	size_t messageLength = (*(cast(ulong*)(messageLength.ptr))).to!size_t;
+	size_t messageLength = (*(cast(ulong*)(messageLengthBuf.ptr))).to!size_t;
 	auto message = socket.receiveBytes(messageLength);
 	return message;
 }
