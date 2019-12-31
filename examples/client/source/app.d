@@ -18,7 +18,7 @@ bool SEC_SUCCESS(T)(T status)
 enum g_usPort = 2000;
 
 enum cbMaxMessage = 12000;
-enum MessageAttribute = ISC_REQ_CONFIDENTIALITY ;
+enum MessageAttribute = IscReq.confidentiality;
 
 // #include <windows.h>
 // #include <winsock.h>
@@ -76,7 +76,7 @@ int main(string[] args)
 //  connectAuthSocket establishes an authenticated socket connection 
 //  with a server and initializes needed security package resources.
 
-Socket createAuthenticatedSocket(ref AuthClient client, string serverName, ushort serverPort)
+Socket createAuthenticatedSocket(ref ClientAuth client, string serverName, ushort serverPort)
 {
 	import std.socket : getAddressInfo, AddressFamily, Socket;
 	import std.algorithm : filter;
