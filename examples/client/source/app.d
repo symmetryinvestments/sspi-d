@@ -46,7 +46,7 @@ int main(string[] args)
     //   SSP and the size of the signature and the encryption 
     //   trailer blocks for this SSP.
 
-	auto securityPackageNegotiationInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&client.content, SecPackageAttribute.negotiationInfo);
+	auto securityPackageNegotiationInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&client.context, SecPackageAttribute.negotiationInfo);
 	writefln("Package Name: %s", securityPackageNegotiationInfo.packageInfo.Name);
 
     auto securityPackageAttrSizes = queryContextAttributes!SecPkgContext_Sizes(&client.context, SecPackageAttribute.sizes);
@@ -61,10 +61,10 @@ int main(string[] args)
 
     writefln("data before decryption including trailer (%s bytes):", data.length);
     printHexDump(data);
-	auto cbSecurityTrailer = cast(ulong) data[0..4];
+	cbSecurityTrailer = (*(cast(ulong*) data.ptr)).to!size_t;
 	auto trailer = data[0 .. cbSecurityTrailer - 4];
 	data = data [cbSecurityTrailer +4 .. $];
-	auto message = client.decrypt(data, trailer);
+	auto message = client.decrypt(data.to!string, trailer.to!string);
 
     writefln("The message from the server is \n %s", message);
 
@@ -109,6 +109,7 @@ auto genClientContext(ref ClientAuth client, ubyte[] bufIn)
 {
 	import std.exception : enforce;
 	import std.stdio : writefln;
+	import std.conv : to;
 
 	auto result = client.authorize(bufIn);
 	enforce(result[0] == SecurityStatus.okay, result.to!string);
@@ -119,15 +120,17 @@ auto genClientContext(ref ClientAuth client, ubyte[] bufIn)
 
 
 
-void printHexDump(const(ubyte)[] buffer)
+void printHexDump(const(ubyte)[] buf)
 {
 	import std.format : format;
+	import std.stdio : writefln;
 
     size_t i,count,index;
     char[] rgbDigits = "0123456789abcdef".dup;
     char[100] rgbLine;
     char cbLine;
-	auto length = buffer.length;
+	auto length = buf.length;
+	char* buffer = cast(char*)buf.ptr;
 
     for(index = 0; length;
         length -= count, buffer += count, index += count) 
@@ -172,22 +175,23 @@ void printHexDump(const(ubyte)[] buffer)
         }
 
         rgbLine[cbLine++] = 0;
-        writef("%s\n", rgbLine);
+        writefln("%s", rgbLine);
     }
 }
 
 void sendMessage(Socket socket, const(ubyte)[] message)
 {
-	socket.sendBytes(cast(ubyte[0 ..4]) message.length.to!ulong);
+	auto messageLength = message.length.to!ulong;
+	socket.sendBytes((cast(ubyte*)&messageLength)[0..4]);
 	socket.sendBytes(message);
 }
 
-ubyte[] receiveMessage(Socket s)
-
+ubyte[] receiveMessage(Socket socket)
 {
+	import std.exception : enforce;
 	ubyte[4] messageLength;
 	enforce(socket.receive(messageLength) ==4);
-	messageLength = (cast(ulong)(messageLength[0..4])).to!size_t;
+	messageLength = (*(cast(ulong*)(messageLength.ptr))).to!size_t;
 	auto message = socket.receiveBytes(messageLength);
 	return message;
 }
@@ -198,11 +202,11 @@ void sendBytes(Socket socket, const(ubyte)[] buf)
 	size_t numBytesSent = 0;
 
     if (buf.length == 0)
-        return true;
+        return;
 
     while(numBytesRemaining > 0)
     {
-        cbSent = socket.send(buf[numBytesSent .. $]);
+        auto cbSent = socket.send(buf[numBytesSent .. $]);
         numBytesSent += cbSent;
         numBytesRemaining -= cbSent;
     }
@@ -213,15 +217,13 @@ ubyte[] receiveBytes(Socket socket, size_t messageLength = 0)
 	import std.array : Appender;
 	Appender!(ubyte[]) ret;
 	ubyte[1024] buf;
-    ubyte* pTemp = pBuf;
-    int cbRead, cbRemaining = messageLength;
+    long cbRead, cbRemaining = messageLength.to!long;
 
-    while (cbRemaining) 
+    while(cbRemaining > 0)
     {
         cbRead = socket.receive(buf);
 		ret.put(buf[0 .. cbRead]);
         cbRemaining -= cbRead;
-        pTemp += cbRead;
     }
     return ret.data;
 }
