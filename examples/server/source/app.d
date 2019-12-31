@@ -38,7 +38,7 @@ int main(string[] args)
 		auto cbSecurityTrailer = securityPackageContextSizes.cbSecurityTrailer;
 
 		auto securityPackageNegInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&serverAuth.context,SecPackageAttribute.negotiationInfo);
-		writefln("Package Name: %s", securityPackageNegInfo.PackageInfo.Name);
+		writefln("Package Name: %s", securityPackageNegInfo.packageInfo.Name);
 		
 		// impersonate the client
 		auto userName = serverAuth.impersonate();
