@@ -157,7 +157,7 @@ before_build:
   - call "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat" %arch% 8.1
 
 build_script:
- - dub build --arch=%Darch% --compiler=%DC% --vverbose
+ - dub build --arch=%Darch% --compiler=%DC% --vverbose && cd examples/server && dub build --arch=%Darch% --compiler=%DC% --vverbose
  
 test_script:
  - echo %PLATFORM%
@@ -166,4 +166,5 @@ test_script:
  - echo %DMD%
  - echo %PATH%
  - '%DC% --help'
- - dub test --arch=%Darch% --compiler=%DC% --vverbose
+ - dub test --arch=%Darch% --compiler=%DC% --vverbose && cd examples/server && dub test --arch=%Darch% --compiler=%DC% --vverbose
+

@@ -6,5 +6,8 @@ Dlang wrapper for Windows SSPI authentication
 
 Client works and is used in production.  Needs checking for memory leaks.  Server builds but has not even been tested.
 
+- incomplete client example in examples/client
+- complete server example in examples/server (builds but not tested yet)
+
 Pull Requests welcomed!
 

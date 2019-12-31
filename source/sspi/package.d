@@ -10,6 +10,7 @@ import sspi.helpers;
 
 enum cbMaxMessage  = 12_000; // from SSPI MS example
 
+
 struct BaseAuth
 {
 	SecHandle context;
@@ -86,11 +87,11 @@ struct BaseAuth
 		buffers[1].pvBuffer = cast(void*)data.ptr;
 
 		context.encryptMessage(0, bufferDesc, getNextSequenceNumber());
-		return tuple(buffers[0],buffers[1]);
+		return outputData.idup;
 	}
 
 
-        /// Decrypt a previously encrypted string, returning the orignal data
+	/// Decrypt a previously encrypted string, returning the orignal data
 	auto decrypt(string data, string trailer)
 	{
 		import std.conv:to;
