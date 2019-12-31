@@ -1,0 +1,6 @@
+name "sspi-client"
+description "SSPI client"
+authors "Laeeth Isharc"
+copyright "Copyright © 2019, Laeeth Isharc"
+license "MIT"
+dependency "sspi-d" version="~>0.2.6"
