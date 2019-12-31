@@ -129,9 +129,9 @@ bool genClientContext(ref ClientAuth client, ubyte[] bufIn)
 
 void printHexDump(const(ubyte)[] buffer)
 {
-    DWORD i,count,index;
-    CHAR rgbDigits[]="0123456789abcdef";
-    CHAR rgbLine[100];
+    size_t i,count,index;
+    char[] rgbDigits = "0123456789abcdef".dup;
+    char[100] rgbLine;
     char cbLine;
 	auto length = buffer.length;
 
