@@ -387,7 +387,7 @@ struct ServerAuth
 		if (securityStatus == SecurityStatus.completeNeeded || securityStatus == SecurityStatus.completeAndContinue)
 			completeAuthToken(&context,bufferDescOut);
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, ((cast(ubyte*)(bufferDescOut.pBuffers)))[0 .. bufferDescOut.cbBuffer].idup);
+		return tuple(securityStatus, ((cast(ubyte*)(bufferDescOut.pBuffers)))[0 .. bufferDescOut.pBuffers.cbBuffer].idup);
 	}
 
 	string impersonate()
