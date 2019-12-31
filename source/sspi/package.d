@@ -5,8 +5,8 @@ version(Windows):
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
 import core.sys.windows.windef:DWORD;
-import sspi.defines;
-import sspi.helpers;
+public import sspi.defines;
+public import sspi.helpers;
 
 enum cbMaxMessage  = 12_000; // from SSPI MS example
 
@@ -387,7 +387,7 @@ struct ServerAuth
 		if (securityStatus == SecurityStatus.completeNeeded || securityStatus == SecurityStatus.completeAndContinue)
 			completeAuthToken(&context,bufferDescOut);
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, buffersOut[0]);
+		return tuple(securityStatus, ((cast(ubyte*)(bufferDescOut.pBuffers)))[0 .. bufferDescOut.cbBuffer].idup);
 	}
 
 	string impersonate()

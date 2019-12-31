@@ -1,6 +1,7 @@
 module server;
 version(Windows):
 import sspi;
+import core.sys.windows.sspi : SECURITY_NATIVE_DREP;
 import std.socket : Socket;
 
 enum BackLog = 10;
@@ -29,14 +30,14 @@ int main(string[] args)
 
 		//  Make an authenticated connection with client.
 		auto socket = serverAuth.acceptAuthSocket(serverPort);
-		auto securityPackageContextSizes = serverAuth.context.queryContextAttributes!SecPkgContextSizes(SecPackageAttribute.contextSizes);
+		auto securityPackageContextSizes = queryContextAttributes!SecPkgContextSizes(&serverAuth.context,SecPackageAttribute.contextSizes);
 		//----------------------------------------------------------------
 		//  The following values are used for encryption and signing.
 
 		auto cbMaxSignature = securityPackageContextSizes.cbMaxSignature;
 		auto cbSecurityTrailer = securityPackageContextSizes.cbSecurityTrailer;
 
-		auto securityPackageNegInfo = serverAuth.context.queryContextAttributes!SecPkgNegInfo(SecPackageAttribute.secPkgNegInfo);
+		auto securityPackageNegInfo = queryContextAttributes!SecPkgNegInfo(&serverAuth.context,SecPackageAttribute.secPkgNegInfo);
 		writefln("Package Name: %s", securityPackageNegInfo.PackageInfo.Name);
 		
 		// impersonate the client
@@ -45,7 +46,7 @@ int main(string[] args)
 		writefln("Client connected as: %s",userName);
 
 		// Revert to self.
-		serverAuth.revert();
+		serverAuth.revertImpersonate();
 		writefln("Reverted to self.");
 
 		// Send the client an encrypted message.
@@ -89,7 +90,9 @@ Socket acceptAuthSocket(ref ServerAuth server, ushort serverPort)
 	auto client = socket.accept();
 	socket.close();
 
-    auto message = server.authorize();
+    auto messageResult = server.authorize();
+	enforce(messageResult[0] == SecurityStatus.okay);
+	auto message = messageResult[1];
     client.sendMessage(message);
 	message = socket.receiveMessage();
 	auto result = server.authorize(message);
