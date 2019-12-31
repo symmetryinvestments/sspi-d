@@ -30,14 +30,14 @@ int main(string[] args)
 
 		//  Make an authenticated connection with client.
 		auto socket = serverAuth.acceptAuthSocket(serverPort);
-		auto securityPackageContextSizes = queryContextAttributes!SecPkgContext_Sizes(&serverAuth.context,SecPackageAttribute.contextSizes);
+		auto securityPackageContextSizes = queryContextAttributes!SecPkgContext_Sizes(&serverAuth.context,SecPackageAttribute.sizes);
 		//----------------------------------------------------------------
 		//  The following values are used for encryption and signing.
 
 		auto cbMaxSignature = securityPackageContextSizes.cbMaxSignature;
 		auto cbSecurityTrailer = securityPackageContextSizes.cbSecurityTrailer;
 
-		auto securityPackageNegInfo = queryContextAttributes!SecPkgContext_NegotiationInfo(&serverAuth.context,SecPackageAttribute.secPkgNegInfo);
+		auto securityPackageNegInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&serverAuth.context,SecPackageAttribute.secPkgNegInfo);
 		writefln("Package Name: %s", securityPackageNegInfo.PackageInfo.Name);
 		
 		// impersonate the client
@@ -73,6 +73,7 @@ Socket acceptAuthSocket(ref ServerAuth server, ushort serverPort)
 	import std.array : array;
 	import std.range : front;
 	import std.exception : enforce;
+	import std.conv : to;
 
     //  Lookup the server's address.
     auto addressInfos = getAddressInfo("0.0.0.0")
