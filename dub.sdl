@@ -1,5 +1,5 @@
-name "gpo-d"
-description "GPO (Group Policy) Windows Library"
+name "sspi-d"
+description "SSPI WIndows Authentication Library"
 authors "Laeeth Isharc"
 copyright "Copyright © 2019, Laeeth Isharc"
 license "mit"
