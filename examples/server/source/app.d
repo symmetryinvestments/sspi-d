@@ -37,7 +37,7 @@ int main(string[] args)
 		auto cbMaxSignature = securityPackageContextSizes.cbMaxSignature;
 		auto cbSecurityTrailer = securityPackageContextSizes.cbSecurityTrailer;
 
-		auto securityPackageNegInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&serverAuth.context,SecPackageAttribute.secPkgNegInfo);
+		auto securityPackageNegInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&serverAuth.context,SecPackageAttribute.negotiationInfo);
 		writefln("Package Name: %s", securityPackageNegInfo.PackageInfo.Name);
 		
 		// impersonate the client
