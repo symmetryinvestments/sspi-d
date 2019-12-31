@@ -1,30 +1,12 @@
 module sspi;
 
-/+
-	Helper classes for SSPI authentication via the win32security module.
-	SSPI authentication involves a token-exchange "dance", the exact details
-	of which depends on the authentication provider used.  There are also
-	a number of complex flags and constants that need to be used - in most
-	cases, there are reasonable defaults.
-	These classes attempt to hide these details from you until you really need
-	to know.  They are not designed to handle all cases, just the common ones.
-	If you need finer control than offered here, just use the win32security
-	functions directly.
-+/
-
-/// Based on Roger Upole's sspi demos.
 version(Windows):
+
 import core.sys.windows.ntsecpkg;
 import core.sys.windows.sspi;
 import core.sys.windows.windef:DWORD;
 import sspi.defines;
 import sspi.helpers;
-import std.datetime:DateTime;
-import std.string:toStringz,fromStringz;
-import std.conv:to;
-import std.typecons:tuple;
-import std.utf:toUTF16z;
-import std.exception;
 
 enum cbMaxMessage  = 12_000; // from SSPI MS example
 
@@ -34,13 +16,37 @@ struct BaseAuth
 	CredHandle credentials;
 	uint nextSequenceNumber;
 	bool isAuthenticated;
-	
+	string packageName;
+	TimeStamp credentialsExpiry;
+	SecPkgInfoW* packageInfo;
+	enum DefaultSecurityContextFlags = 	IscReq.integrity 	| IscReq.sequenceDetect | IscReq.replayDetect	| IscReq.confidentiality;
+	IscReq securityContextFlags = DefaultSecurityContextFlags;
+	uint dataRep;
+	uint contextAttr;
+
+
+	void dispose()
+	{
+		if (this.context != SecHandle.init)
+			deleteSecurityContext(&this.context);
+		if (this.credentials != CredHandle.init)
+			freeCredentialsHandle(&this.credentials);
+	}
+
 	/// Reset everything to an unauthorized state
 	void reset()
 	{
+		this.dispose();
 		this.context = SecHandle.init;
+		this.credentials = CredHandle.init;
 		this.isAuthenticated = false;
 		this.nextSequenceNumber = 0;
+		this.packageName = null;
+		this.credentialsExpiry = TimeStamp.init;
+		this.packageInfo = null;
+		this.securityContextFlags = DefaultSecurityContextFlags;
+		this.dataRep = 0;
+		this.contextAttr = 0;
 	}
 
 	/// Get the next sequence number for a transmission.  Default implementation is to increment a counter
@@ -53,6 +59,9 @@ struct BaseAuth
 
 	auto encrypt(string data)
 	{
+		import std.conv:to;
+		import std.typecons:tuple;
+
 		// auto packageInfo = context.queryContextAttributes!SecPkgNegInfo(SecPackageAttribute.info);
 		auto packageSizes= queryContextAttributes!SecPkgContext_Sizes(&context,SecPackageAttribute.sizes);
 		auto maxSignatureSize = packageSizes.cbMaxSignature;
@@ -84,6 +93,9 @@ struct BaseAuth
         /// Decrypt a previously encrypted string, returning the orignal data
 	auto decrypt(string data, string trailer)
 	{
+		import std.conv:to;
+		import std.string : toStringz,fromStringz;
+
 		SecBuffer[2] buffers;
 		SecBufferDesc bufferDesc;
 
@@ -107,6 +119,9 @@ struct BaseAuth
 	/// Passing the data and signature to verify will determine if the data is unchanged.
 	string sign(string data)
 	{
+		import std.conv:to;
+		import std.string : toStringz,fromStringz;
+
 		auto packageSizes = queryContextAttributes!SecPkgContext_Sizes(&context,SecPackageAttribute.sizes);
 		auto trailerSize = packageSizes.cbMaxSignature;
 
@@ -130,6 +145,9 @@ struct BaseAuth
         /// Verifies data and its signature.  If verification fails, an sspi.error will be raised.
 	void verifySignature(string data, string sig)
 	{
+		import std.conv:to;
+		import std.string : toStringz,fromStringz;
+
 		SecBuffer[2] buffers;
 		SecBufferDesc bufferDesc;
 		bufferDesc.ulVersion = SECBUFFER_VERSION;
@@ -146,30 +164,51 @@ struct BaseAuth
 
 		context.verifySignature(bufferDesc, this.getNextSequenceNumber());
 	}
+
+	auto acquireCredentialsHandle(string userName, string packageName, CredentialDirection credentialDirection)
+	{
+		import std.exception : enforce;
+		import std.conv:to;
+		import std.typecons:tuple;
+		import std.utf:toUTF16z;
+
+		TimeStamp lifetime;
+		auto direction = (credentialDirection == CredentialDirection.inbound) ? SECPKG_CRED_INBOUND : SECPKG_CRED_OUTBOUND;
+		SecurityStatus securityStatus = cast(SecurityStatus) AcquireCredentialsHandleW(
+									(userName is null) ? null : cast(wchar*) userName.toUTF16z,
+									cast(wchar*) packageName.toUTF16z,
+									direction,
+									null,
+									null,
+									null,
+									null,
+									&this.credentials,
+									&lifetime);
+		enforce(securityStatus.secSuccess, securityStatus.to!string);
+		this.credentialsExpiry = lifetime;
+		return tuple(lifetime, credentials);
+	}
 }
 
 
-
+enum CredentialDirection
+{
+	inbound,
+	outbound,
+}
 
 
 struct ClientAuth
 {
 	BaseAuth base;
 	alias base this;
+	alias DefaultSecurityContextFlags = BaseAuth.DefaultSecurityContextFlags;
 
-	enum DefaultSecurityContextFlags = 	IscReq.integrity 	| IscReq.sequenceDetect | IscReq.replayDetect	| IscReq.confidentiality;
-
-	IscReq securityContextFlags;
-	long dataRep;
 	string targetSecurityContextProvider;
-	SecPkgInfoW* packageInfo;
-	TimeStamp credentialsExpiry;
-	string packageName;
-	uint contextAttr;
 
 	this(string packageName, string clientName, 
 		string targetSecurityContextProvider = null,
-		IscReq securityContextFlags = DefaultSecurityContextFlags, long dataRep = SECURITY_NETWORK_DREP)
+		IscReq securityContextFlags = DefaultSecurityContextFlags, uint dataRep = SECURITY_NETWORK_DREP)
 	{
 		import std.stdio;
 		import std.string:fromStringz;
@@ -178,35 +217,20 @@ struct ClientAuth
 		this.dataRep = dataRep;
 		this.targetSecurityContextProvider = targetSecurityContextProvider;
 		this.packageInfo = querySecurityPackageInfo(packageName);
-		auto result = acquireCredentialsHandle(clientName,packageName);  // clientName,packageInfo.Name, SECPKG_CRED_OUTBOUND,
+		auto result = acquireCredentialsHandle(clientName,packageName,CredentialDirection.outbound);
 		this.credentialsExpiry = result[0];
 		this.base.credentials = result[1];
 		this.packageName = packageName;
 	}
 
 
-	auto acquireCredentialsHandle(string userName, string packageName)
-	{
-		TimeStamp lifetime;
-		SecurityStatus securityStatus = cast(SecurityStatus) AcquireCredentialsHandleW(
-									cast(wchar*) userName.toUTF16z,
-									cast(wchar*) packageName.toUTF16z,
-									SECPKG_CRED_OUTBOUND,
-									null,
-									null,
-									null,
-									null,
-									&this.base.credentials,
-									&lifetime);
-		enforce(securityStatus.secSuccess, securityStatus.to!string);
-		this.credentialsExpiry = lifetime;
-		return tuple(lifetime, base.credentials);
-	}
 	/// Perform *one* step of the server authentication process.
 	auto authorize(ubyte[] data=[])
 	{
 		import std.stdio;
 		import std.conv:to;
+		import std.typecons:tuple;
+
 		SecurityContextResult result;
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
@@ -222,6 +246,7 @@ struct ClientAuth
 		buffersOut[0].cbBuffer = cbOut;
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = retBuf.ptr;
+		auto securityContextModFlags = cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY;
 
 		if(!isFirstStage)
 		{
@@ -235,20 +260,20 @@ struct ClientAuth
 
 			buffersOut[0].pvBuffer = null;
 			buffersOut[0].cbBuffer   = 0;
-			result = initializeSecurityContext(credentials, &context, packageName, cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY, 0U, cast(uint)dataRep,bufferDescIn,bufferDescOut);
-			bufferDescOut=result.outputBufferDesc;
+			result = initializeSecurityContext(credentials, &context, packageName, securityContextModFlags, 0U, cast(uint)dataRep,bufferDescIn,bufferDescOut);
+			bufferDescOut = result.outputBufferDesc;
 		}
 		else
 		{
 			buffersOut[0].pvBuffer = null;
 			buffersOut[0].cbBuffer   = 0;
-			result = initializeSecurityContextInitial(credentials, &context, this.targetSecurityContextProvider, cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY, 0UL, cast(uint)dataRep,bufferDescOut);
+			result = initializeSecurityContextInitial(credentials, &context, this.targetSecurityContextProvider, securityContextModFlags, 0UL, dataRep,bufferDescOut);
 			bufferDescOut=result.outputBufferDesc;
 			//auto result2 = queryContextAttributes!SecPkgInfoW(&context,SecPackageAttribute.negotiationInfo);
 		}
 
 		scope(exit)
-	     	{
+		{
 			if (result.outputBufferDesc.pBuffers !is null)
 				FreeContextBuffer(cast(void*)result.outputBufferDesc.pBuffers);
 		}
@@ -274,85 +299,104 @@ struct ClientAuth
 	}
 }
 
-version(None):
 /// Manages the server side of an SSPI authentication handshake
 struct ServerAuth
 {
 	BaseAuth base;
 	alias base this;
-	string packageName;
-	ulong datarap;
-	IscReq securityContextFlags;
-	void* packageInfo;
-	DateTime credentialsExpiry;
-	bool isAuthenticated;
+	alias DefaultSecurityContextFlags = BaseAuth.DefaultSecurityContextFlags;
 
-	this(string packageName, securityContextFlags = 0UL, ulong datarep = SECURITY_NETWORK_DREP)
+	bool isAuthenticated = false;
+
+	this(string packageName, 
+		IscReq securityContextFlags = DefaultSecurityContextFlags, uint dataRep = SECURITY_NETWORK_DREP)
 	{
+		this.securityContextFlags = securityContextFlags;
+		this.dataRep = dataRep;
 		this.packageName = packageName;
-		this.datarep = datarep;
-
-		this.securityContextFlags = (securityContextFlags==0) ? 
-	    		(ASC_REQ_INTEGRITY|ASC_REQ_SEQUENCE_DETECT | ASC_REQ_REPLAY_DETECT|ASC_REQ_CONFIDENTIALITY) :
-			securityContextFlags;
-		base = BaseAuth();
+		this.packageInfo = querySecurityPackageInfo(packageName);
 	}
 
 	void setup()
 	{
+		import std.format : format;
+		import std.exception : enforce;
 
-		packageInfo = QuerySecurityPackageInfo(packageName);
-		this.credentialsExpiry = AcquireCredentialsHandle(packageName, this.packageInfo.Name, SECPKG_CRED_INBOUND, null, null);
+		packageInfo = querySecurityPackageInfo(packageName);
+		auto result = acquireCredentialsHandle(null,packageName, CredentialDirection.inbound);
+		this.credentialsExpiry = result[0];
 	}
 
 	/// Perform *one* step of the server authentication process.
-	auto authorize(string data = null)
+	auto authorize(ubyte[] data = [])
 	{
 		import std.stdio;
-		SecurityStatus result;
+		import std.typecons:tuple;
+
 		bool isFirstStage = (data.length == 0);
 		ubyte[] retBuf;
 		retBuf.length = isFirstStage ? 0 : cbMaxMessage; // packageInfo.cbMaxMessage;
 		SecBuffer[1] buffersIn, buffersOut;
 		SecBufferDesc bufferDescIn, bufferDescOut;
-		DWORD cbOut = 0;
 
-		bufferDescOut.ulVersion = SECBUFFER_VERSION;
+		auto contextSizes= queryContextAttributes!SecPkgContext_Sizes(&context, SecPackageAttribute.sizes);
+		auto negotiationInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&context,SecPackageAttribute.negotiationInfo);
+
+		bufferDescOut.ulVersion = 0;
 		bufferDescOut.cBuffers = 1;
 		bufferDescOut.pBuffers = buffersOut.ptr;
 
-		buffersOut[0].cbBuffer = cbOut;
+		buffersOut[0].cbBuffer = this.packageInfo.cbMaxToken; // CHECKME
 		buffersOut[0].BufferType = SECBUFFER_TOKEN;
 		buffersOut[0].pvBuffer = retBuf.ptr;
 
-		bufferDescOut.cbBuffer = this.packageInfo.cbMaxToken;
-		bufferDescOut.BufferType = SECBUFFER_TOKEN;
+		SecurityContextResult result;
+
+		auto securityContextModFlags = cast(uint)securityContextFlags | ISC_REQ_ALLOCATE_MEMORY;
 
 		if(!isFirstStage)
 		{
-			bufferDescIn.ulVersion = SECBUFFER_VERSION;
+			bufferDescIn.ulVersion = 0;
 			bufferDescIn.cBuffers = 1;
 			bufferDescIn.pBuffers = buffersIn.ptr;
 
 			buffersIn[0].cbBuffer = this.packageInfo.cbMaxToken;
 			buffersIn[0].BufferType = SECBUFFER_TOKEN;
-			buffersIn[0].pvBuffer = data.toStringz;
-			result = initializeSecurityContext(	credentials, context, buffersIn, securityContextFlags, dataRep, bufferDescOut);
+			buffersIn[0].pvBuffer = cast(void*) data.ptr;
+			result = acceptSecurityContext(	credentials, &context, &bufferDescIn, securityContextModFlags, dataRep, &context,bufferDescOut);
 		}
 		else
 		{
-			//result = initializeSecurityContextInitial(	credentials,  null, 	securityContextFlags, dataRep, bufferDescOut);
+			SecHandle newContext;
+			result = acceptSecurityContext(	credentials, null, &bufferDescIn, securityContextModFlags, dataRep, &newContext,bufferDescOut);
+			this.context = newContext;
 		}
 
-		this.contextAttr = result[0];
-		this.contextExpiry = result[1];
-		auto securityStatus = result[2];
-		this.context = result[3];
+		scope(exit)
+		{
+			if (result.outputBufferDesc.pBuffers !is null)
+				FreeContextBuffer(cast(void*)result.outputBufferDesc.pBuffers);
+		}
 
-		if (securityStatus & SEC_I_COMPLETE_NEEDED || securityStatus & SEC_I_COMPLETE_AND_CONTINUE)
-			context.completeAuthToken(bufferDescOut);
+		this.base.contextAttr = result.contextAttribute;
+		this.base.credentialsExpiry = result.expiry;
+		auto securityStatus = result.securityStatus;
+		bufferDescOut = result.outputBufferDesc;
+
+		if (securityStatus == SecurityStatus.completeNeeded || securityStatus == SecurityStatus.completeAndContinue)
+			completeAuthToken(&context,bufferDescOut);
 		this.isAuthenticated = (securityStatus ==0);
-		return tuple(securityStatus, buffers[0]);
+		return tuple(securityStatus, buffersOut[0]);
+	}
 
+	string impersonate()
+	{
+		impersonateSecurityContext(&context);
+		return getUserName();
+	}
+
+	void revertImpersonate()
+	{
+		revertSecurityContext(&context);
 	}
 }
