@@ -32,7 +32,7 @@ int main(string[] args)
 	import std.format : format;
 	import std.conv : to;
 
-	auto user = getUser();
+	auto user = getUserName();
 	auto client = ClientAuth("NTLM",user);
 	string serverName = (args.length > 1) ? args[1] : "127.0.0.1";
 	ushort serverPort = (args.length > 2) ? args[2].to!ushort : 9000;
@@ -49,10 +49,10 @@ int main(string[] args)
 	auto securityPackageNegotiationInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&client.content, SecPackageAttribute.negotiationInfo);
 	writefln("Package Name: %s", securityPackageNegotiationInfo.packageInfo.Name);
 
-    auto securityPackageAttrSizes = queryContextAttributes!SecPkgContextSizes(&client.context, SecPackageAttribute.sizes);
+    auto securityPackageAttrSizes = queryContextAttributes!SecPkgContext_Sizes(&client.context, SecPackageAttribute.sizes);
 
-    cbMaxSignature = securityPackageAttrSizes.cbMaxSignature;
-    cbSecurityTrailer = securityPackageAttrSizes.cbSecurityTrailer;
+    auto cbMaxSignature = securityPackageAttrSizes.cbMaxSignature;
+    auto cbSecurityTrailer = securityPackageAttrSizes.cbSecurityTrailer;
 
     //--------------------------------------------------------------------
     //   decrypt and display the message from the server.
@@ -78,13 +78,10 @@ int main(string[] args)
 
 Socket createAuthenticatedSocket(ref ClientAuth client, string serverName, ushort serverPort)
 {
-	import std.socket : getAddressInfo, AddressFamily, Socket;
+	import std.socket : getAddressInfo, AddressFamily, Socket, InternetAddress;
 	import std.algorithm : filter;
 	import std.array : array;
 	import std.range : front;
-
-    hostent *pHost;
-    SOCKADDR_IN sin;
 
     //--------------------------------------------------------------------
     //  Lookup the server's address.
@@ -100,7 +97,7 @@ Socket createAuthenticatedSocket(ref ClientAuth client, string serverName, ushor
     Socket socket = new Socket(addressInfos.front);
 	socket.connect(address);	
     auto message = client.genClientContext([]);
-    socket.sendMessage(outbuf);
+    socket.sendMessage(message);
 	message = socket.receiveMessage();
 	auto result = client.genClientContext(message);
 	socket.sendMessage(result);
@@ -108,18 +105,13 @@ Socket createAuthenticatedSocket(ref ClientAuth client, string serverName, ushor
 }
 
 
-bool genClientContext(ref ClientAuth client, ubyte[] bufIn)
+auto genClientContext(ref ClientAuth client, ubyte[] bufIn)
 {
-    if (bufIn.length == 0)
-    {   
-		client.packageInfo = querySecurityPackageInfo("Negotiate");
-		client.dataRep = SECURITY_NATIVE_DREP;
-		auto result = acquireCredentialsHandle(null,"Negotiate",CredentialDirection.outbound);
-		client.credentialsExpiry = result[0];
-    }
+	import std.exception : enforce;
+	import std.stdio : writefln;
 
 	auto result = client.authorize(bufIn);
-	enforce(result == SecurityStatus.okay, result.to!string);
+	enforce(result[0] == SecurityStatus.okay, result.to!string);
     writefln("Token buffer generated (%s bytes):", result[1].length);
     printHexDump(result[1]);
     return result[1];
@@ -129,6 +121,8 @@ bool genClientContext(ref ClientAuth client, ubyte[] bufIn)
 
 void printHexDump(const(ubyte)[] buffer)
 {
+	import std.format : format;
+
     size_t i,count,index;
     char[] rgbDigits = "0123456789abcdef".dup;
     char[100] rgbLine;
@@ -140,7 +134,7 @@ void printHexDump(const(ubyte)[] buffer)
     {
         count = (length > 16) ? 16:length;
 
-        swritef_s(rgbLine, 100, "%4.4x  ",index);
+        rgbLine = format!"%4.4x  "(index);
         cbLine = 6;
 
         for(i=0;i<count;i++) 
