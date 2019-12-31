@@ -61,7 +61,7 @@ int main(string[] args)
 
     writefln("data before decryption including trailer (%s bytes):", data.length);
     printHexDump(data);
-	cbSecurityTrailer = (*(cast(ulong*) data.ptr)).to!size_t;
+	cbSecurityTrailer = (*(cast(ulong*) data.ptr)).to!uint;
 	auto trailer = data[0 .. cbSecurityTrailer - 4];
 	data = data [cbSecurityTrailer +4 .. $];
 	auto message = client.decrypt(data.to!string, trailer.to!string);
@@ -98,14 +98,14 @@ Socket createAuthenticatedSocket(ref ClientAuth client, string serverName, ushor
 	socket.connect(address);	
     auto message = client.genClientContext([]);
     socket.sendMessage(message);
-	message = socket.receiveMessage();
+	message = socket.receiveMessage().idup;
 	auto result = client.genClientContext(message);
 	socket.sendMessage(result);
     return socket;
 }
 
 
-auto genClientContext(ref ClientAuth client, ubyte[] bufIn)
+auto genClientContext(ref ClientAuth client, const(ubyte)[] bufIn)
 {
 	import std.exception : enforce;
 	import std.stdio : writefln;
@@ -181,6 +181,7 @@ void printHexDump(const(ubyte)[] buf)
 
 void sendMessage(Socket socket, const(ubyte)[] message)
 {
+	import std.conv : to;
 	auto messageLength = message.length.to!ulong;
 	socket.sendBytes((cast(ubyte*)&messageLength)[0..4]);
 	socket.sendBytes(message);
@@ -188,10 +189,12 @@ void sendMessage(Socket socket, const(ubyte)[] message)
 
 ubyte[] receiveMessage(Socket socket)
 {
+	import std.conv : to;
 	import std.exception : enforce;
-	ubyte[4] messageLength;
-	enforce(socket.receive(messageLength) ==4);
-	messageLength = (*(cast(ulong*)(messageLength.ptr))).to!size_t;
+
+	ubyte[4] messageLengthBuf;
+	enforce(socket.receive(messageLengthBuf) ==4);
+	size_t messageLength = (*(cast(ulong*)(messageLength.ptr))).to!size_t;
 	auto message = socket.receiveBytes(messageLength);
 	return message;
 }
@@ -215,6 +218,8 @@ void sendBytes(Socket socket, const(ubyte)[] buf)
 ubyte[] receiveBytes(Socket socket, size_t messageLength = 0)
 {
 	import std.array : Appender;
+	import std.conv : to;
+
 	Appender!(ubyte[]) ret;
 	ubyte[1024] buf;
     long cbRead, cbRemaining = messageLength.to!long;
