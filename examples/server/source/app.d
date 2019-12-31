@@ -1,8 +1,8 @@
 module server;
 version(Windows):
 import sspi;
-import core.sys.windows.sspi : SECURITY_NATIVE_DREP;
 import std.socket : Socket;
+import core.sys.windows.ntsecpkg : SECURITY_NATIVE_DREP;
 
 enum BackLog = 10;
 
