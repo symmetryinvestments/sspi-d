@@ -63,7 +63,7 @@ int main(string[] args)
 		serverAuth.setup();
 	}
 
-	writefln("Server ran to completion without error.");
+	//writefln("Server ran to completion without error.");
 }
 
 Socket acceptAuthSocket(ref ServerAuth server, ushort serverPort)
