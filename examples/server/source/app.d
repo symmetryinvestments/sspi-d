@@ -13,7 +13,7 @@ int main(string[] args)
 	import std.conv : to;
 	import std.stdio : writefln;
 
-	auto serverPort = args[1].to!ushort;
+	auto serverPort = (args.length > 1) ? args[1].to!ushort : 9000;
 	auto serverAuth = ServerAuth(); // "Negotiate", ServerAuth.DefaultSecurityContextFlags, SECURITY_NATIVE_DREP);
 	serverAuth.setup();
 	auto maxMessageSize = serverAuth.packageInfo.cbMaxToken;
