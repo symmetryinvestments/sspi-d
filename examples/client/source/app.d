@@ -1,11 +1,13 @@
+module client;
+version(Windows):
 import sspi;
-//--------------------------------------------------------------------
-//  Client-side program to establish an SSPI socket connection
-//  with a server and exchange messages.
+import std.socket : Socket;
+import core.sys.windows.ntsecpkg : SECURITY_NATIVE_DREP;
 
-//--------------------------------------------------------------------
+// Port of MS example of client-side program to establish an SSPI socket connection with a server and exchange messages.
+
+
 //  Define macros and constants.
-
 enum BIG_BUFF = 2048;
 
 bool SEC_SUCCESS(T)(T status)
@@ -32,8 +34,9 @@ int main(string[] args)
 
 	auto user = getUser();
 	auto client = ClientAuth("NTLM",user);
-	auto serverName = args[1];
-	auto serverPort = args[2].to!uint;
+	string serverName = (args.length > 1) ? args[1] : "127.0.0.1";
+	ushort serverPort = (args.length > 2) ? args[2].to!ushort : 9000;
+
     auto socket = client.createAuthenticatedSocket(serverName, serverPort);
 
     //--------------------------------------------------------------------
@@ -43,10 +46,10 @@ int main(string[] args)
     //   SSP and the size of the signature and the encryption 
     //   trailer blocks for this SSP.
 
-	auto securityPackageNegotiationInfo = client.context.queryContextAttributes!SecPkgNegInfoW(SecPackageAttribute.negotiationInfo);
-	writefln("Package Name: %s", securityPackageNegotiationInfo.PackageInfo.Name.fromUTF16z);
+	auto securityPackageNegotiationInfo = queryContextAttributes!SecPkgContext_NegotiationInfoW(&client.content, SecPackageAttribute.negotiationInfo);
+	writefln("Package Name: %s", securityPackageNegotiationInfo.packageInfo.Name);
 
-    auto securityPackageAttrSizes = client.context.queryContextAttributes!SecPkgContextSizes(SecPackageAttribute.contextSizes);
+    auto securityPackageAttrSizes = queryContextAttributes!SecPkgContextSizes(&client.context, SecPackageAttribute.sizes);
 
     cbMaxSignature = securityPackageAttrSizes.cbMaxSignature;
     cbSecurityTrailer = securityPackageAttrSizes.cbSecurityTrailer;
@@ -124,7 +127,7 @@ bool genClientContext(ref ClientAuth client, ubyte[] bufIn)
 
 
 
-void printHexDump(ubyte[] buffer)
+void printHexDump(const(ubyte)[] buffer)
 {
     DWORD i,count,index;
     CHAR rgbDigits[]="0123456789abcdef";
@@ -179,7 +182,7 @@ void printHexDump(ubyte[] buffer)
     }
 }
 
-void sendMessage(Socket socket, ubyte[] message)
+void sendMessage(Socket socket, const(ubyte)[] message)
 {
 	socket.sendBytes(cast(ubyte[0 ..4]) message.length.to!ulong);
 	socket.sendBytes(message);
@@ -195,7 +198,7 @@ ubyte[] receiveMessage(Socket s)
 	return message;
 }
 
-void sendBytes(Socket socket, ubyte[] buf)
+void sendBytes(Socket socket, const(ubyte)[] buf)
 {
     size_t numBytesRemaining = buf.length;
 	size_t numBytesSent = 0;
