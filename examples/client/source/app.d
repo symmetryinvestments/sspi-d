@@ -227,7 +227,7 @@ ubyte[] receiveBytes(Socket socket, size_t messageLength = 0)
     while(cbRemaining > 0)
     {
         cbRead = socket.receive(buf);
-		ret.put(buf[0 .. cbRead]);
+		ret.put(buf[0 .. cbRead.to!size_t]);
         cbRemaining -= cbRead;
     }
     return ret.data;
