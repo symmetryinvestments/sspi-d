@@ -2,8 +2,8 @@ module sspi;
 
 version(Windows):
 
-import core.sys.windows.ntsecpkg;
-import core.sys.windows.sspi;
+public import core.sys.windows.ntsecpkg;
+public import core.sys.windows.sspi;
 import core.sys.windows.windef:DWORD;
 public import sspi.defines;
 public import sspi.helpers;
