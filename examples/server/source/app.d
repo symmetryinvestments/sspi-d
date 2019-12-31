@@ -30,14 +30,14 @@ int main(string[] args)
 
 		//  Make an authenticated connection with client.
 		auto socket = serverAuth.acceptAuthSocket(serverPort);
-		auto securityPackageContextSizes = queryContextAttributes!SecPkgContextSizes(&serverAuth.context,SecPackageAttribute.contextSizes);
+		auto securityPackageContextSizes = queryContextAttributes!SecPkgContext_Sizes(&serverAuth.context,SecPackageAttribute.contextSizes);
 		//----------------------------------------------------------------
 		//  The following values are used for encryption and signing.
 
 		auto cbMaxSignature = securityPackageContextSizes.cbMaxSignature;
 		auto cbSecurityTrailer = securityPackageContextSizes.cbSecurityTrailer;
 
-		auto securityPackageNegInfo = queryContextAttributes!SecPkgNegInfo(&serverAuth.context,SecPackageAttribute.secPkgNegInfo);
+		auto securityPackageNegInfo = queryContextAttributes!SecPkgContext_NegotiationInfo(&serverAuth.context,SecPackageAttribute.secPkgNegInfo);
 		writefln("Package Name: %s", securityPackageNegInfo.PackageInfo.Name);
 		
 		// impersonate the client
@@ -94,7 +94,7 @@ Socket acceptAuthSocket(ref ServerAuth server, ushort serverPort)
 	enforce(messageResult[0] == SecurityStatus.okay);
 	auto message = messageResult[1];
     client.sendMessage(message);
-	message = socket.receiveMessage();
+	message = socket.receiveMessage().idup;
 	auto result = server.authorize(message);
 	enforce(result[0] == SecurityStatus.okay, result[0].to!string);
 	client.sendMessage(result[1]);

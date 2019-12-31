@@ -2,7 +2,7 @@ module sspi;
 
 version(Windows):
 
-public import core.sys.windows.ntsecpkg;
+import core.sys.windows.ntsecpkg;
 public import core.sys.windows.sspi;
 import core.sys.windows.windef:DWORD;
 public import sspi.defines;
@@ -226,7 +226,7 @@ struct ClientAuth
 
 
 	/// Perform *one* step of the server authentication process.
-	auto authorize(ubyte[] data=[])
+	auto authorize(const(ubyte)[] data=[])
 	{
 		import std.stdio;
 		import std.conv:to;
@@ -329,7 +329,7 @@ struct ServerAuth
 	}
 
 	/// Perform *one* step of the server authentication process.
-	auto authorize(ubyte[] data = [])
+	auto authorize(const(ubyte)[] data = [])
 	{
 		import std.stdio;
 		import std.typecons:tuple;
