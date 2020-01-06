@@ -273,11 +273,12 @@ struct ClientAuth
 			//auto result2 = queryContextAttributes!SecPkgInfoW(&context,SecPackageAttribute.negotiationInfo);
 		}
 
-		scope(exit)
-		{
-			if (result.outputBufferDesc.pBuffers !is null)
-				FreeContextBuffer(cast(void*)result.outputBufferDesc.pBuffers);
-		}
+		version (SSPI_Leak) {}
+		else
+			scope (exit)
+				if (result.outputBufferDesc.pBuffers !is null)
+					FreeContextBuffer(cast(void*) result.outputBufferDesc.pBuffers);
+
 		this.contextAttr = result.contextAttribute;
 		this.credentialsExpiry = result.expiry;
 		auto securityStatus = result.securityStatus;
